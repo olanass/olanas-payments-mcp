@@ -7,16 +7,24 @@ provider dependency and is not endorsed by Robinhood.
 
 ## Quick start
 
-Install directly from GitHub and configure Codex in one command:
+Install directly from GitHub in one command:
 
 ```powershell
-npx --yes github:olanass/launchpad-app --client codex --auto-config
+npx --yes github:olanass/web
 ```
 
-For the interactive client selector, omit the flags:
+The installer asks which MCP client to configure:
+
+- Claude — Claude Desktop application
+- Claude Code — Claude Code CLI
+- Codex — OpenAI Codex CLI
+- Gemini — Google Gemini CLI
+- Other — any other MCP-compatible tool
+
+For non-interactive setup, pass the matching client value:
 
 ```powershell
-npx --yes github:olanass/launchpad-app
+npx --yes github:olanass/web --client codex --auto-config
 ```
 
 From a cloned repository:
@@ -31,7 +39,8 @@ After the standalone npm package is published, the shorter equivalent will be:
 npx olanas-payments-mcp
 ```
 
-Select Codex, Claude Desktop, Claude Code, Gemini CLI, or manual configuration.
+Select Claude Desktop, Claude Code, Codex, Gemini CLI, or manual configuration
+for another MCP-compatible tool.
 The installer creates a native wallet automatically, encrypts it locally, saves
 a generated owner password in the private installation directory, and optionally
 configures the selected MCP client. It never asks for an API key or seed phrase.

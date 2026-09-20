@@ -110,13 +110,13 @@ function configureClient(client, options) {
 async function selectClient(options) {
   if (options.client) return options.client;
   log('Select your MCP client:');
-  log('  1) Codex');
-  log('  2) Claude Desktop');
-  log('  3) Claude Code');
-  log('  4) Gemini CLI');
-  log('  5) Other');
-  const answer = await ask('Client [1]: ');
-  return ({ '': 'codex', '1': 'codex', '2': 'claude', '3': 'claude-code', '4': 'gemini', '5': 'other' })[answer] || answer;
+  log('  1) Claude - Claude Desktop application');
+  log('  2) Claude Code - Claude Code CLI');
+  log('  3) Codex - OpenAI Codex CLI');
+  log('  4) Gemini - Google Gemini CLI');
+  log('  5) Other - Other MCP-compatible tools');
+  const answer = await ask('Client [3]: ');
+  return ({ '': 'codex', '1': 'claude', '2': 'claude-code', '3': 'codex', '4': 'gemini', '5': 'other' })[answer] || answer;
 }
 function configText(values) {
   return Object.entries(values).map(([key, value]) => key + '=' + quoteEnv(value)).join('\n') + '\n';
