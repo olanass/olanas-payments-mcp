@@ -4,10 +4,9 @@
   "description": "Native Olanas wallet and x402 payments MCP installer",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/olanass/web.git",
-    "directory": "payments-mcp"
+    "url": "git+https://github.com/olanass/web.git"
   },
-  "homepage": "https://github.com/olanass/web/tree/main/payments-mcp#readme",
+  "homepage": "https://github.com/olanass/web/tree/olanas-payments-mcp#readme",
   "bugs": {
     "url": "https://github.com/olanass/web/issues"
   },
@@ -18,10 +17,6 @@
     "robinhood-chain",
     "ai-agent"
   ],
-  "scripts": {
-    "build": "node build-package.js",
-    "prepack": "node build-package.js"
-  },
   "type": "commonjs",
   "license": "MIT",
   "bin": {
@@ -37,8 +32,5 @@
     "cli.js",
     "dist/",
     "README.md"
-  ],
-  "devDependencies": {
-    "esbuild": "^0.28.2"
-  }
+  ]
 }
