@@ -1,0 +1,44 @@
+{
+  "name": "olanas-payments-mcp",
+  "version": "1.0.0",
+  "description": "Native Olanas wallet and x402 payments MCP installer",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/olanass/launchpad-app.git",
+    "directory": "payments-mcp"
+  },
+  "homepage": "https://github.com/olanass/launchpad-app/tree/main/payments-mcp#readme",
+  "bugs": {
+    "url": "https://github.com/olanass/launchpad-app/issues"
+  },
+  "keywords": [
+    "mcp",
+    "x402",
+    "wallet",
+    "robinhood-chain",
+    "ai-agent"
+  ],
+  "scripts": {
+    "build": "node build-package.js",
+    "prepack": "node build-package.js"
+  },
+  "type": "commonjs",
+  "license": "MIT",
+  "bin": {
+    "olanas-payments-mcp": "cli.js"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "dependencies": {
+    "ethers": "^6.13.2"
+  },
+  "files": [
+    "cli.js",
+    "dist/",
+    "README.md"
+  ],
+  "devDependencies": {
+    "esbuild": "^0.28.2"
+  }
+}
