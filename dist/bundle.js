@@ -100214,11 +100214,10 @@ async function start() {
     provider = new ethers.JsonRpcProvider(rpc, chain.chainId, { staticNetwork: true });
     olanasSigner = new OlanasRobinhoodSigner({ wallet: signingWallet, provider, chain });
   }
-  const port = Number(process.env.PAYMENTS_MCP_PORT || 4782);
-  if (!Number.isInteger(port) || port < 1024 || port > 65535) throw new Error("Invalid companion port");
-  const origin = "http://127.0.0.1:" + port;
+  const requestedPort = Number(process.env.PAYMENTS_MCP_PORT || 0);
+  if (!Number.isInteger(requestedPort) || requestedPort < 0 || requestedPort > 65535) throw new Error("Invalid companion port");
+  let port, origin, walletUrl;
   const token = crypto.randomBytes(32).toString("hex");
-  const walletUrl = origin + "/#" + token;
   const dataDir = process.env.PAYMENTS_DATA_DIR || path.join(os.homedir(), ".olanas-payments");
   fs.mkdirSync(dataDir, { recursive: true });
   const namespace = chain.networkKey + (olanasSigner ? "-olanas-" + olanasSigner.address.toLowerCase() : "");
@@ -100331,9 +100330,12 @@ async function start() {
   }
   app.use((err, req, res, next) => res.status(400).json({ error: err.message }));
   const http = await new Promise((resolve, reject) => {
-    const listener = app.listen(port, "127.0.0.1", () => resolve(listener));
+    const listener = app.listen(requestedPort, "127.0.0.1", () => resolve(listener));
     listener.on("error", reject);
   });
+  port = http.address().port;
+  origin = "http://127.0.0.1:" + port;
+  walletUrl = origin + "/#" + token;
   const mcp = new McpServer({ name: "olanas-robinhood-payments", version: "0.2.0" });
   const output = (value) => ({ content: [{ type: "text", text: JSON.stringify(value) }] });
   const register = (name, description, inputSchema, fn) => mcp.registerTool(name, { description, inputSchema }, async (args) => {
