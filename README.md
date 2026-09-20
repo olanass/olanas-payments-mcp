@@ -10,7 +10,7 @@ provider dependency and is not endorsed by Robinhood.
 Install directly from GitHub in one command:
 
 ```powershell
-npx --yes github:olanass/web
+npx --yes github:olanass/web#olanas-payments-mcp
 ```
 
 The installer asks which MCP client to configure:
@@ -24,7 +24,7 @@ The installer asks which MCP client to configure:
 For non-interactive setup, pass the matching client value:
 
 ```powershell
-npx --yes github:olanass/web --client codex --auto-config
+npx --yes github:olanass/web#olanas-payments-mcp --client codex --auto-config
 ```
 
 From a cloned repository:
