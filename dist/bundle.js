@@ -99329,15 +99329,6 @@ var require_chain = __commonJS({
         rpcUrl: "https://rpc.mainnet.chain.robinhood.com",
         explorerUrl: "https://robinhoodchain.blockscout.com",
         testnet: false
-      },
-      testnet: {
-        networkKey: "testnet",
-        networkId: "robinhood-chain-testnet",
-        chainId: 46630,
-        name: "Robinhood Chain Testnet",
-        rpcUrl: "https://rpc.testnet.chain.robinhood.com",
-        explorerUrl: "https://explorer.testnet.chain.robinhood.com",
-        testnet: true
       }
     };
     var safeAddress = (address) => ethers2.getAddress(address.toLowerCase());
@@ -99349,7 +99340,7 @@ var require_chain = __commonJS({
     };
     function getRobinhoodChainConfig(requestedNetwork) {
       const networkKey2 = (requestedNetwork || "mainnet").toLowerCase();
-      if (!NETWORKS[networkKey2]) throw new Error('Robinhood network must be "mainnet" or "testnet"');
+      if (networkKey2 !== "mainnet") throw new Error("Olanas supports Robinhood Chain mainnet only (chain ID 4663). Set ROBINHOOD_NETWORK=mainnet.");
       const network = NETWORKS[networkKey2];
       const demoMode = process.env.X402_DEMO_MODE === "true" && process.env.NODE_ENV !== "production";
       const tokens = { ETH: { symbol: "ETH", name: "Ether", decimals: 18, address: null } };
@@ -99413,10 +99404,7 @@ var require_paths = __commonJS({
     var PROJECT_ROOT = process.cwd();
     var CLIENT_DIR = path2.join(PROJECT_ROOT, "src", "client");
     var GENERATED_DIR = path2.join(CLIENT_DIR, "generated");
-    var isTestnet = process.env.ROBINHOOD_NETWORK?.toLowerCase() === "testnet";
-    var configuredDataDirectory = isTestnet ? process.env.ROBINHOOD_TESTNET_DATA_DIR : process.env.X402_DATA_DIR;
-    var defaultDataDirectory = isTestnet ? "uploads-testnet" : "uploads";
-    var DATA_DIR = path2.resolve(configuredDataDirectory || (process.env.VERCEL ? path2.join(os2.tmpdir(), isTestnet ? "x402-testnet" : "x402-mainnet") : path2.join(PROJECT_ROOT, defaultDataDirectory)));
+    var DATA_DIR = path2.resolve(process.env.X402_DATA_DIR || (process.env.VERCEL ? path2.join(os2.tmpdir(), "x402-mainnet") : path2.join(PROJECT_ROOT, "uploads")));
     module2.exports = { PROJECT_ROOT, CLIENT_DIR, GENERATED_DIR, DATA_DIR };
   }
 });
@@ -100678,9 +100666,9 @@ async function start() {
     provider = new ethers.JsonRpcProvider(rpc, chain.chainId, { staticNetwork: true });
     olanasSigner = new OlanasRobinhoodSigner({ wallet: signingWallet, provider, chain });
   }
-  const port = Number(process.env.PAYMENTS_MCP_PORT || 4782);
-  if (!Number.isInteger(port) || port < 1024 || port > 65535) throw new Error("Invalid companion port");
-  const origin = "http://127.0.0.1:" + port;
+  const requestedPort = Number(process.env.PAYMENTS_MCP_PORT || 0);
+  if (!Number.isInteger(requestedPort) || requestedPort < 0 || requestedPort > 65535) throw new Error("Invalid companion port");
+  let port, origin, walletUrl;
   const dataDir = process.env.PAYMENTS_DATA_DIR || path.join(os.homedir(), ".olanas-payments");
   fs.mkdirSync(dataDir, { recursive: true });
   const namespace = chain.networkKey + (olanasSigner ? "-olanas-" + olanasSigner.address.toLowerCase() : "");
@@ -100716,7 +100704,6 @@ async function start() {
     token = crypto.randomBytes(32).toString("hex");
     fs.writeFileSync(tokenFile, token, { encoding: "utf8", mode: 384 });
   }
-  const walletUrl = origin + "/#" + token;
   const wallet = new PaymentsWallet({
     chain,
     baseUrl: process.env.PAYMENTS_LAUNCHPAD_URL || "https://olanas.xyz",
@@ -100826,9 +100813,12 @@ async function start() {
   app.use("/api", (req, res) => res.status(404).json({ error: "Unknown companion endpoint. Check that the UI and runtime are on the same version." }));
   app.use((err, req, res, next) => res.status(400).json({ error: err.message }));
   const http = await new Promise((resolve, reject) => {
-    const listener = app.listen(port, "127.0.0.1", () => resolve(listener));
+    const listener = app.listen(requestedPort, "127.0.0.1", () => resolve(listener));
     listener.on("error", reject);
   });
+  port = http.address().port;
+  origin = "http://127.0.0.1:" + port;
+  walletUrl = origin + "/#" + token;
   const mcp = new McpServer({ name: "olanas-robinhood-payments", version: "0.2.0" });
   const output = (value) => ({ content: [{ type: "text", text: JSON.stringify(value) }] });
   const register = (name, description, inputSchema, fn) => mcp.registerTool(name, { description, inputSchema }, async (args) => {

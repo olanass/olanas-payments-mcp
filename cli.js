@@ -94,6 +94,8 @@ function configureClient(client, options) {
     manualConfig(); return false;
   }
   const definition = serverDefinition();
+  const removeArgs = client === 'codex' ? ['mcp', 'remove', 'olanas-payments'] : ['mcp', 'remove', '--scope', 'user', 'olanas-payments'];
+  spawnSync(command, removeArgs, { encoding: 'utf8', windowsHide: true });
   const args = client === 'codex'
     ? ['mcp', 'add', 'olanas-payments', '--', definition.command, ...definition.args]
     : ['mcp', 'add', '--scope', 'user', 'olanas-payments', '--', definition.command, ...definition.args];
@@ -149,7 +151,7 @@ async function install(options) {
   const launchpad = options.launchpadProvided ? options.launchpad : (saved.env.PAYMENTS_LAUNCHPAD_URL || options.launchpad);
   const values = { PAYMENTS_WALLET_PROVIDER: 'olanas', OLANAS_KEYSTORE_FILE: walletFile,
     OLANAS_ACCOUNT_ADDRESS: saved.wallet.address, PAYMENTS_OWNER_PASSWORD: saved.password,
-    ROBINHOOD_NETWORK: network, PAYMENTS_LAUNCHPAD_URL: launchpad, PAYMENTS_MCP_PORT: '4782',
+    ROBINHOOD_NETWORK: network, PAYMENTS_LAUNCHPAD_URL: launchpad, PAYMENTS_MCP_PORT: '0',
     PAYMENTS_DATA_DIR: path.join(installDir, 'data') };
   writePrivate(envFile, configText(values));
   const client = await selectClient(options);
