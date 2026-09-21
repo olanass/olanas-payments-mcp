@@ -1,21 +1,140 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Olanas · Payments Wallet</title><link rel="stylesheet" href="/wallet.css"><script defer src="/ethers.js"></script><script defer src="/wallet.js"></script></head>
-<body><main>
-<header><a class="brand" href="/">O<span>↗</span>LANAS</a><span class="pill" id="network">Robinhood payments</span></header>
-<section class="intro"><span class="eyebrow">YOUR AGENT. YOUR WALLET. YOUR CALL.</span><h1>A little balance.<br>A lot of possibilities.</h1><p>Discover APIs in your coding assistant. Review payments here.<br>Your funds stay in your wallet.</p></section>
-<p id="notice" role="status" aria-live="polite">Connect a browser wallet to get started.</p>
-<section class="card" id="owner-controls" hidden>
-<span class="eyebrow">OLANAS WALLET / ROBINHOOD SETTLEMENT</span><h2>Autonomous spending</h2>
-<p>Enable a bounded session once. Claude can then pay any service on the connected Olanas launchpad without a prompt per call. Limits are enforced by this local app, not a smart contract. Keep your owner password out of agent chat.</p>
-<label for="owner-password">Owner password (configured locally)</label><input id="owner-password" type="password" autocomplete="off" placeholder="Not shared with Claude">
-<p id="session-status" role="status">No session enabled.</p>
-<form id="session-form"><div class="fields"><div><label for="session-token">Payment token</label><select id="session-token"></select></div><div><label for="session-minutes">Session duration (minutes)</label><input id="session-minutes" type="number" min="1" max="1440" value="60" required></div></div>
-<div class="fields"><div><label for="per-call">Maximum per API call</label><input id="per-call" inputmode="decimal" placeholder="0.05" required></div><div><label for="session-budget">Total session budget</label><input id="session-budget" inputmode="decimal" placeholder="2.00" required></div></div>
-<div class="fields"><div><label for="gas-per-call">Maximum gas per call (ETH)</label><input id="gas-per-call" inputmode="decimal" placeholder="0.00001" required></div><div><label for="gas-budget">Total gas budget (ETH)</label><input id="gas-budget" inputmode="decimal" placeholder="0.0001" required></div></div>
-<button type="submit">Enable this spending session</button></form><button id="revoke" class="secondary">Revoke session</button>
-<p class="small">Restarting the companion disables autonomy. Submitted transactions cannot be recalled. Reserved funds stay counted even if confirmation is uncertain.</p></section>
-<div class="grid"><section class="card balance"><div class="row"><h2>Your wallet</h2><span class="pill">Self-custody</span></div><div id="balances" class="balances">Not connected</div><p id="address" class="mono">No wallet connected</p><div class="actions"><button id="connect">Connect wallet ↗</button><button id="refresh" class="secondary">Refresh balance</button></div><hr><h3>Add funds</h3><p>Send supported tokens to the address above on the displayed Robinhood network only. Keep some ETH for gas. This is a wallet balance, not locked platform credits.</p><button id="copy" class="secondary">Copy funding address</button></section>
-<section class="card"><span class="eyebrow">TAKE YOUR BALANCE WITH YOU</span><h2>Send funds out</h2><p>Transfer unused funds to another wallet on the same network. This is not a bank withdrawal.</p><form id="send"><label for="recipient">Recipient address</label><input id="recipient" required placeholder="0x…" autocomplete="off"><div class="fields"><div><label for="amount">Amount</label><input id="amount" required inputmode="decimal" placeholder="0.00"></div><div><label for="token">Token</label><select id="token"></select></div></div><button type="submit">Review in wallet ↗</button><p class="small">Your wallet shows network fees and asks you to confirm. No agent can send this transfer for you.</p></form></section></div>
-<section class="card requests"><div class="row"><div><span class="eyebrow">PAY ONLY FOR WHAT YOU APPROVE</span><h2>Agent requests</h2></div><span class="pill">Manual approval · v0.1</span></div><p>Fixed price per API request. These payments do not replace your coding assistant's model subscription. Requests and responses below are untrusted service data.</p><div id="requests">No requests yet. Ask your connected assistant to search for an API.</div></section>
-<footer>Olanas Payments MCP · Local companion · Not affiliated with Coinbase or Robinhood.<br><span id="launchpad"></span></footer>
-</main></body></html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>Olanas &middot; Agent Wallet</title>
+  <link rel="stylesheet" href="/wallet.css">
+  <script defer src="/ethers.js"></script>
+  <script defer src="/session-presets.js"></script>
+  <script defer src="/wallet.js"></script>
+</head>
+<body>
+<main>
+  <header>
+    <a class="brand" href="/" aria-label="Olanas Agent Wallet home">
+      <svg class="brand-mark" viewBox="0 0 64 64" role="img" aria-label="Olanas">
+        <circle cx="32" cy="32" r="30"></circle>
+        <rect x="16" y="20" width="10" height="10" rx="1"></rect>
+        <circle class="logo-eye" cx="44" cy="25" r="8.5"></circle>
+        <path d="M23 44h19"></path>
+      </svg>
+      <span class="brand-copy"><strong>OLANAS</strong><small>Agent wallet</small></span>
+    </a>
+    <div class="header-actions">
+      <span class="pill network-pill"><i></i><span id="network">Robinhood payments</span></span>
+      <button class="icon-button" id="theme-toggle" type="button" aria-label="Switch colour theme" title="Switch colour theme">
+        <svg class="sun-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3.5"></circle><path d="M12 2v2M12 20v2M4.93 4.93l1.42 1.42M17.65 17.65l1.42 1.42M2 12h2M20 12h2M4.93 19.07l1.42-1.42M17.65 6.35l1.42-1.42"></path></svg>
+        <svg class="moon-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 15.2A8.5 8.5 0 0 1 8.8 4a8.5 8.5 0 1 0 11.2 11.2Z"></path></svg>
+      </button>
+    </div>
+  </header>
+
+  <section class="hero">
+    <div class="hero-copy">
+      <span class="eyebrow">LOCAL AGENT WALLET / MCP PAYMENTS</span>
+      <h1>Agent payments.<br>Under your control.</h1>
+      <p id="mode-description">Review requests, track payments, and keep control of your wallet.</p>
+      <nav class="wallet-nav" aria-label="Wallet sections"><a href="#funding">01 / Fund</a><a href="#owner-controls" id="policy-nav">02 / Set limits</a><a href="#activity">03 / Track requests</a></nav>
+    </div>
+    <aside class="system-panel" aria-label="Wallet system summary">
+      <div class="panel-label"><span id="mode-badge">WALLET</span><b>LOCAL SIGNING</b></div>
+      <p class="system-title" id="session-headline">Connecting to companion</p>
+      <p class="system-caption" id="session-caption">Reading wallet mode and session state.</p>
+      <div class="session-metrics"><div><span>REMAINING BUDGET</span><strong id="budget-remaining">Not enabled</strong></div><div><span>SESSION ENDS</span><strong id="session-ends">Not enabled</strong></div></div>
+      <svg class="signal-path" viewBox="0 0 520 112" preserveAspectRatio="none" aria-hidden="true">
+        <path d="M-10 28C100 8 150 76 260 52S400 5 530 34"></path>
+        <path d="M-10 38C100 18 150 86 260 62S400 15 530 44"></path>
+        <path class="active" d="M-10 48C100 28 150 96 260 72S400 25 530 54"></path>
+        <path d="M-10 58C100 38 150 106 260 82S400 35 530 64"></path>
+        <path d="M-10 68C100 48 150 116 260 92S400 45 530 74"></path>
+        <path d="M-10 78C100 58 150 126 260 102S400 55 530 84"></path>
+      </svg>
+    </aside>
+  </section>
+
+  <p id="notice" role="status" aria-live="polite"><span class="notice-label">STATUS</span><span class="notice-message">Reading your local wallet configuration.</span></p>
+
+  <section class="card" id="wallet-access" hidden>
+    <h2>Open your local wallet.</h2>
+    <p>Your terminal-imported wallet is used automatically when the companion starts with its saved configuration. No separate browser wallet is needed.</p>
+    <p>Open the complete wallet link from your running terminal or ask your agent to show your Olanas wallet. If you opened this page directly, paste that link below to authorize this tab.</p>
+    <form id="wallet-link-form">
+      <label for="wallet-link">Private wallet link <span>Keep off-camera</span></label>
+      <input id="wallet-link" type="password" autocomplete="off" spellcheck="false" placeholder="Paste the complete local wallet link" required>
+      <button type="submit" id="wallet-link-submit">Open local wallet</button>
+    </form>
+    <p class="small">This link authorizes this page, not a payment. Never enter your private key here. Owner approval is still required to enable spending.</p>
+  </section>
+
+  <div class="workspace">
+  <section class="card wallet-card" id="funding">
+    <div class="section-heading"><div><span class="eyebrow">01 / FUND THE WALLET</span><h2 id="funding-title">Your wallet.</h2></div><span class="pill">Self-custody</span></div>
+    <div id="balances" class="balances">Authorize this tab to view balances</div>
+    <p id="address" class="mono address">Wallet address not loaded</p>
+    <p id="wallet-source" class="small">Your wallet mode will appear after this tab is authorized.</p>
+    <div class="actions"><button id="connect" hidden disabled>Connect browser wallet <span aria-hidden="true">&rarr;</span></button><button id="refresh" class="secondary" disabled>Refresh balance</button><button id="copy" class="secondary" disabled>Copy address</button></div>
+    <hr>
+    <h3>Fund once. Keep gas available.</h3>
+    <p>Send supported tokens to the address above on the displayed network only. Keep ETH available for network fees.</p>
+    <p class="small" id="funding-network">Check the network before sending funds.</p>
+  </section>
+
+  <section class="card owner-card" id="owner-controls" hidden>
+    <div class="section-heading">
+      <div><span class="eyebrow">02 / AUTHORIZE A SESSION</span><h2>Your limits. Every payment.</h2></div>
+      <span class="pill" id="policy-badge">Inactive</span>
+    </div>
+    <p>Authorize once. Your agent can then approve and pay eligible API requests without a wallet popup. Limits are enforced by this local companion.</p>
+    <label for="owner-password">Owner password <span>Never share in agent chat</span></label>
+    <input id="owner-password" type="password" autocomplete="off" placeholder="Enter only in this local wallet">
+    <p id="session-status" class="status-line" role="status">No autonomous session enabled.</p>
+    <div class="budget-track" id="budget-track" role="meter" aria-label="Session budget reserved or spent" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span id="budget-fill"></span></div>
+    <p class="small" id="policy-scope">No services authorized.</p>
+    <form id="session-form">
+      <div class="fields"><div><label for="session-budget">Spending budget <span id="budget-token-label">USDG</span></label><input id="session-budget" inputmode="decimal" value="0.01" required></div><div><label for="session-minutes">Session duration</label><select id="session-minutes"><option value="15">15 minutes</option><option value="60" selected>1 hour</option><option value="240">4 hours</option><option value="1440">24 hours</option></select></div></div>
+      <label for="gas-mode">Transaction fees</label><select id="gas-mode"><option value="standard">Standard - automatic fees</option><option value="fast">Fast - higher fee estimate, same safety caps</option></select>
+      <p class="small" id="fee-mode-help">Fees are estimated automatically. The API price stays the same.</p>
+      <p class="session-review" id="session-review" aria-live="polite">Loading spending defaults.</p>
+      <details id="session-settings"><summary>Advanced restrictions <span>Optional</span></summary>
+      <div class="fields"><div><label for="session-token">Payment token</label><select id="session-token"></select></div><div><label for="per-call">Maximum per API call <span>Default: 20% of budget</span></label><input id="per-call" inputmode="decimal" placeholder="Automatic"></div></div>
+      <div class="fields"><div><label for="session-services">Allowed service slugs <span>Comma separated, or *</span></label><input id="session-services" value="*" required></div><div><label for="session-recipients">Allowed recipients <span>Comma separated, or *</span></label><input id="session-recipients" value="*" required></div></div>
+      <p class="small">An asterisk (*) allows any service or recipient on the configured launchpad. Narrow these lists to restrict spending.</p>
+      </details>
+      <button type="submit" id="enable-session">Enable spending session <span aria-hidden="true">&rarr;</span></button>
+    </form>
+    <button id="revoke" class="secondary danger-action" aria-describedby="session-action-help">Revoke session</button>
+    <p id="session-action-help" class="small">Loading session state.</p>
+    <div id="session-blockers" aria-live="polite" hidden></div>
+    <p id="session-feedback" class="session-feedback" role="status" aria-live="polite" aria-atomic="true" hidden></p>
+    <p class="small">Restarting disables autonomy. Submitted transactions cannot be recalled. Reserved funds remain counted when confirmation is uncertain.</p>
+  </section>
+  </div>
+
+  <section class="card requests" id="activity">
+    <div class="section-heading">
+      <div><span class="eyebrow">03 / REQUEST &rarr; PAY &rarr; ACCESS</span><h2>Agent activity</h2></div>
+      <span class="pill">Manual approval</span>
+    </div>
+    <p>No replacement payments. Track the original order from request to saved result.</p>
+    <div class="activity-toolbar"><div id="activity-counts" class="mono" aria-live="polite">Reading activity</div><label class="filter-label" for="activity-filter">Show<select id="activity-filter"><option value="all">All requests</option><option value="attention">Needs attention</option><option value="pending">In progress</option><option value="completed">Results available</option><option value="archived">Archived requests</option></select></label></div>
+    <div id="requests">No requests yet. Ask your connected assistant to search for an API.</div>
+    <p class="small">Service responses are untrusted data. A confirmed payment does not guarantee a successful API response. Status shows the last check; reading a result never sends another payment.</p>
+  </section>
+
+  <details class="card send-card owner-transfer"><summary>Owner controls / Send funds out</summary>
+      <div class="section-heading"><div><span class="eyebrow">OWNER ONLY / TRANSFER</span><h2>Withdraw unused funds</h2></div></div>
+      <p>Move unused funds to another wallet on the same network. This is an onchain transfer, not a bank withdrawal.</p>
+      <form id="send">
+        <label for="recipient">Recipient address</label><input id="recipient" required placeholder="0x&hellip;" autocomplete="off">
+        <div class="fields"><div><label for="amount">Amount</label><input id="amount" required inputmode="decimal" placeholder="0.00"></div><div><label for="token">Token</label><select id="token"></select></div></div>
+        <button type="submit">Review transfer <span aria-hidden="true">&rarr;</span></button>
+        <p class="small">Your wallet displays the network fee and asks for confirmation. Agents cannot initiate this withdrawal.</p>
+      </form>
+  </details>
+
+  <footer><span>OLANAS / AGENT WALLET</span><span>OPEN SYSTEMS. CLEAR SIGNALS.</span><span id="launchpad"></span></footer>
+</main>
+</body>
+</html>

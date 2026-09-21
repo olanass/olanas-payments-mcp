@@ -1,6 +1,7 @@
 'use strict';
 const crypto = require('node:crypto');
 const { ethers } = require('ethers');
+const { resolve: resolveSession } = require('./session-presets');
 
 // Policies are owned by the human companion, never writable through MCP tools.
 // These are application-enforced limits, not claims of on-chain/CDP enforcement.
@@ -16,6 +17,7 @@ class AutonomousPayments {
   }
   enable(input) {
     const asset = this.wallet.chain.supportedTokens[input.token];
+    input = resolveSession(input, asset, ethers);
     if (!asset) throw new Error('Choose a supported token');
     const positive = (value, decimals) => {
       if (typeof value !== 'string' || !/^\d+(\.\d+)?$/.test(value)) throw new Error('Limits must be positive decimal strings');
@@ -29,7 +31,7 @@ class AutonomousPayments {
     if (BigInt(gasPerCall) > BigInt(gasBudget)) throw new Error('Gas per-call limit exceeds gas budget');
     this.wallet.state.policy = { id: crypto.randomUUID(), active: true, payer: this.signer.address, chainId: this.wallet.chain.chainId,
       origin: this.wallet.baseUrl, token: input.token, perCall, budget, spent: '0',
-      gasPerCall, gasBudget, gasSpent: '0', expiresAt: Date.now() + input.minutes * 60000 };
+      gasPerCall, gasBudget, gasMode: input.gasMode, gasSpent: '0', expiresAt: Date.now() + input.minutes * 60000 };
     this.wallet.save(); return this.wallet.state.policy;
   }
   revoke() { if (this.wallet.state.policy) this.wallet.state.policy.active = false; this.wallet.save(); }
@@ -57,7 +59,7 @@ class AutonomousPayments {
       if (item.status !== 'pending') throw new Error('Payment needs owner recovery; no new transaction was sent');
       if (this.wallet.state.intents.some(other => other.id !== item.id && ['signing', 'submitted', 'awaiting_wallet'].includes(other.status))) throw new Error('Another payment is unresolved; reconcile it first');
       const policy = this.authorize(item);
-      const prepared = await this.signer.prepare(item, policy.gasPerCall);
+      const prepared = await this.signer.prepare(item, policy.gasPerCall, policy.gasMode);
       if (this.authorize(item).id !== policy.id) throw new Error('Session changed while preparing payment');
       if (BigInt(policy.gasSpent) + prepared.gasCost > BigInt(policy.gasBudget)) throw new Error('Payment exceeds remaining gas budget');
       // Reserve both principal and maximum gas before any signing. Never refund
@@ -118,6 +120,7 @@ class AutonomousPayments {
   }
   async withdraw({ requestId, recipient, token, amount, gasLimit }) {
     return this.exclusive(async () => {
+      if (this.unresolved?.()) throw new Error('Resolve outstanding autonomous orders before withdrawing');
       if (!/^[a-zA-Z0-9_-]{8,80}$/.test(requestId || '')) throw new Error('Unique withdrawal requestId required');
       const payTo = ethers.getAddress(recipient);
       const asset = this.wallet.chain.supportedTokens[token];

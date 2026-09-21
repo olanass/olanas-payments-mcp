@@ -5,6 +5,23 @@ private key on the local machine, stores it in an encrypted JSON keystore, signs
 locally, and broadcasts through Robinhood RPC. It has no hosted wallet or custody
 provider dependency and is not endorsed by Robinhood.
 
+Autonomous purchases use durable website orders and an owner-enabled spending
+policy. See [autonomous setup and recovery](AUTONOMOUS-PAYMENTS.md). Browser-wallet
+mode still requires per-payment approval. Deploy the durable website backend
+before running the updated companion; validate funded transactions on testnet.
+
+### Preview the local wallet UI
+
+From this source checkout, run `npm run build` followed by `npm run preview:wallet`.
+Open `http://127.0.0.1:4783/#preview`. This uses labeled example data and rejects
+all payment, withdrawal, and policy-change requests. No real wallet is loaded.
+Use `node scripts/preview-wallet.js --manual` to preview browser-wallet mode.
+The installed companion uses its usual authenticated wallet link; restart it
+after rebuilding to load backend changes. The launchpad website UI is separate.
+The preview defaults to clearly labeled mainnet example data; add `--testnet`
+to preview testnet. For a real side-wallet recording, follow the
+[mainnet preparation checklist](MAINNET-RECORDING.md).
+
 ## Quick start
 
 Install directly from GitHub in one command:
@@ -244,8 +261,23 @@ run on the user's computer, **not Vercel**. The launchpad remains web-hosted.
 
 ## Verification
 
-`npm run test:payments` tests intent validation, replay/idempotency, persistence,
-budget concurrency, revocation, local serialized signing, gas caps, owner
-authentication, mocked transaction verification/delivery, stdio MCP and HTTP security.
+`npm test` runs the local wallet UI, order lifecycle, session-limit, and import
+regressions with mocked transactions. `npm run test:runtime` rebuilds the shipped
+package and launches it with an isolated generated wallet and loopback RPC. It
+checks MCP discovery, matching UI assets, owner authentication, session enable/
+revoke, balance reads, and network-mismatch rejection without moving funds.
 Live transfers must be separately validated by a user on testnet before treating
 this implementation as production-ready.
+
+### Remove requests from activity
+
+Use **Remove from activity** on a request card. The **Archived requests** filter
+shows removed entries and offers **Restore to activity**. Archiving does not
+cancel a pending order, revoke approval, or delete transaction history. The saved
+request identity and payment journal remain available for recovery and duplicate
+payment prevention.
+
+MCP clients can call `archive_request` with `{ "id": "<order or request ID>" }`.
+Pass `"archived": false` to restore an entry. `list_payments` hides archived
+entries by default; pass `"includeArchived": true` to include them. Restart the
+MCP companion after updating its package to load the new tool and endpoint.

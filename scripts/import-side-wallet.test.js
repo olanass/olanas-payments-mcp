@@ -1,0 +1,21 @@
+'use strict';
+const { test } = require('node:test');
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const os = require('node:os');
+const path = require('node:path');
+const { parseEnv } = require('node:util');
+const { ethers } = require('ethers');
+const { saveImportedWallet } = require('./import-side-wallet');
+test('side wallet import encrypts a generated test key, targets mainnet and refuses overwrites', async t => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'olanas-import-test-'));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const key = ethers.Wallet.createRandom(), password = 'test-password-not-a-real-wallet', directory = path.join(root, 'wallet');
+  const result = await saveImportedWallet({ privateKey: key.privateKey, password, directory }, dir => fs.mkdirSync(dir));
+  assert.equal(result.address, key.address);
+  const text = fs.readFileSync(path.join(directory, 'wallet.json'), 'utf8'); assert.ok(!text.includes(key.privateKey.slice(2)));
+  assert.equal((await ethers.Wallet.fromEncryptedJson(text, password)).address, key.address);
+  const env = parseEnv(fs.readFileSync(result.envFile, 'utf8')); assert.equal(env.ROBINHOOD_NETWORK, 'mainnet');
+  assert.equal(env.OLANAS_ACCOUNT_ADDRESS, key.address); assert.equal(env.PAYMENTS_WALLET_PROVIDER, 'olanas');
+  await assert.rejects(saveImportedWallet({ privateKey: key.privateKey, password, directory }), /already exists/);
+});

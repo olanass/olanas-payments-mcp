@@ -18,6 +18,12 @@
     "ai-agent"
   ],
   "type": "commonjs",
+  "scripts": {
+    "test": "node --test activity.test.js autonomous-orders.test.js orders-client.test.js quote.test.js wallet-ui.test.js session-presets.test.js scripts/import-side-wallet.test.js scripts/mainnet-preflight.test.js",
+    "build": "node build-package.js",
+    "test:runtime": "node build-package.js && node --test wallet-runtime.test.js",
+    "preview:wallet": "node scripts/preview-wallet.js"
+  },
   "license": "MIT",
   "bin": {
     "olanas-payments-mcp": "cli.js"
@@ -31,6 +37,8 @@
   "files": [
     "cli.js",
     "dist/",
+    "AUTONOMOUS-PAYMENTS.md",
+    "MAINNET-RECORDING.md",
     "README.md"
   ]
 }

@@ -1,0 +1,52 @@
+# Dependencies and local caches
+node_modules/
+.npm-cache/
+.cache/
+.local/
+
+# Next.js and deployment output
+.next/
+.vercel/
+out/
+coverage/
+*.tsbuildinfo
+
+# Generated website assets and duplicate package output
+/public/
+/src/client/generated/
+/payments-mcp/dist/
+
+# Separate repositories/worktrees managed independently
+/.main-worktree/
+/startup-pitch-scorer/
+
+# Local configuration and credentials (keep shareable examples)
+.env
+.env.*
+*.env
+!.env.example
+!.env.*.example
+!*.env.example
+/wallet.json
+/owner-password.txt
+*.companion-token
+*.keystore.json
+
+# Local application data and temporary output
+/uploads/
+/uploads-testnet/
+/tmp/
+/MAINNET-RECORDING.md
+/VIDEO-RECORDING-GUIDE.md
+*.log
+npm-debug.log*
+
+# Editor and operating-system metadata
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# dist/ is intentionally tracked: cli.js installs its packaged runtime.
+# Keep package-lock.json and source/test files tracked as well.

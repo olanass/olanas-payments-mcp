@@ -1,6 +1,7 @@
 'use strict';
 const fs = require('node:fs');
 const { ethers } = require('ethers');
+const { modes } = require('./session-presets');
 
 async function loadSigningWallet(env = process.env) {
   const file = env.OLANAS_KEYSTORE_FILE;
@@ -22,7 +23,8 @@ class OlanasRobinhoodSigner {
     if (!wallet?.address || typeof wallet.signTransaction !== 'function') throw new Error('A valid Olanas signing wallet is required');
     this.wallet = wallet; this.provider = provider; this.address = ethers.getAddress(wallet.address); this.chain = chain;
   }
-  async prepare({ token, payTo, amount }, maxGasWei) {
+  async prepare({ token, payTo, amount }, maxGasWei, gasMode = 'standard') {
+    if (!modes[gasMode]) throw new Error('Unsupported gas mode');
     // Check the RPC itself, not just the provider's static network setting.
     if (Number(BigInt(await this.provider.send('eth_chainId', []))) !== this.chain.chainId) throw new Error('RPC returned the wrong chain');
     const asset = this.chain.supportedTokens[token];
@@ -37,14 +39,17 @@ class OlanasRobinhoodSigner {
     const transaction = { to: asset.address || ethers.getAddress(payTo), value: asset.address ? 0n : BigInt(amount), data, from: this.address };
     const fee = await this.provider.getFeeData();
     if (!fee.maxFeePerGas || fee.maxPriorityFeePerGas == null) throw new Error('EIP-1559 fee estimate unavailable');
+    const multiplier = BigInt(modes[gasMode].multiplier);
+    const maxFeePerGas = (fee.maxFeePerGas * multiplier + 99n) / 100n;
+    const maxPriorityFeePerGas = (fee.maxPriorityFeePerGas * multiplier + 99n) / 100n;
     const gasLimit = (await this.provider.estimateGas(transaction)) * 120n / 100n;
-    const gasCost = gasLimit * fee.maxFeePerGas;
+    const gasCost = gasLimit * maxFeePerGas;
     if (gasCost <= 0n || gasCost > BigInt(maxGasWei)) throw new Error('Transaction exceeds the approved gas limit');
     if (await this.provider.getBalance(this.address) < transaction.value + gasCost) throw new Error('Insufficient ETH for payment and gas');
     delete transaction.from;
     return { transaction: ethers.Transaction.from({ ...transaction, type: 2, chainId: this.chain.chainId,
       nonce: await this.provider.getTransactionCount(this.address, 'pending'), gasLimit,
-      maxFeePerGas: fee.maxFeePerGas, maxPriorityFeePerGas: fee.maxPriorityFeePerGas }), gasCost };
+      maxFeePerGas, maxPriorityFeePerGas }), gasCost };
   }
   async sign(transaction) {
     let raw;
@@ -57,6 +62,7 @@ class OlanasRobinhoodSigner {
     return { raw, hash: signed.hash };
   }
   async broadcast(raw) { return this.provider.broadcastTransaction(raw); }
+  async signMessage(message) { return this.wallet.signMessage(message); }
   async receipt(hash) { return this.provider.getTransactionReceipt(hash); }
 }
 

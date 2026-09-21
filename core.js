@@ -45,11 +45,23 @@ class PaymentsWallet {
   save() {
     if (!this.file) return;
     fs.mkdirSync(path.dirname(this.file), { recursive: true });
-    fs.writeFileSync(this.file + '.tmp', JSON.stringify(this.state), { mode: 0o600 });
+    const fd = fs.openSync(this.file + '.tmp', 'w', 0o600);
+    try { fs.writeFileSync(fd, JSON.stringify(this.state)); fs.fsyncSync(fd); }
+    finally { fs.closeSync(fd); }
     fs.renameSync(this.file + '.tmp', this.file);
   }
   connect(address) { this.state.address = ethers.getAddress(address); this.save(); }
+  expireRequests() {
+    let changed = false;
+    for (const item of this.state.intents) {
+      if (item.status === 'pending' && item.expiresAt <= Date.now()) {
+        item.status = 'expired'; changed = true;
+      }
+    }
+    if (changed) this.save();
+  }
   get(id) {
+    this.expireRequests();
     const intent = this.state.intents.find(item => item.id === id);
     if (!intent) throw new Error('Unknown payment request');
     return intent;
@@ -61,7 +73,39 @@ class PaymentsWallet {
     return JSON.parse(text);
   }
   async discover(query = '') { return this.json('/api/services?status=live&limit=20&search=' + encodeURIComponent(query)); }
+  async refreshQuote(id, { reopen = false } = {}) {
+    const item = this.get(id);
+    const requiredStatus = reopen ? 'rejected' : 'expired';
+    const eligible = () => {
+      if (item.status !== requiredStatus || item.txHash || item.policyId || item.kind) throw new Error('Only ' + requiredStatus + ', unpaid API requests can be refreshed');
+      if (item.origin !== this.baseUrl || item.chainId !== this.chain.chainId || item.payer !== this.state.address) throw new Error('Reconnect the original wallet and network to refresh this quote');
+    };
+    eligible();
+    if (this.busy.has(item.requestId)) throw new Error('Quote refresh already in progress');
+    this.busy.add(item.requestId);
+    try {
+      const quote = await this.quote(item.slug, item.method);
+      eligible(); // A rejection or wallet change during the lookup must win.
+      item.reviewHistory ||= [];
+      item.reviewHistory.push({ action: reopen ? 'reopened' : 'quote_refreshed', at: Date.now(), source: 'wallet', previousStatus: item.status });
+      Object.assign(item, quote, { status: 'pending', quotedAt: Date.now(), expiresAt: Date.now() + 300000 });
+      this.save(); return item;
+    } finally { this.busy.delete(item.requestId); }
+  }
+  async quote(slug, method) {
+    const { service } = await this.json('/api/services/' + slug);
+    if (!service || service.status !== 'live' || service.chainId !== this.chain.chainId) throw new Error('Service is unavailable or on another chain');
+    if (!service.allowedMethods.includes(method)) throw new Error('Method not supported by service');
+    const token = this.chain.supportedTokens[service.currency];
+    if (!token) throw new Error('Token is not supported on this Robinhood network');
+    const amount = ethers.parseUnits(String(service.price), token.decimals);
+    if (amount <= 0n) throw new Error('Invalid price');
+    return { name: String(service.name).slice(0, 120), token: token.symbol,
+      asset: token.address, decimals: token.decimals, amount: amount.toString(),
+      displayAmount: ethers.formatUnits(amount, token.decimals), payTo: ethers.getAddress(service.payoutAddress) };
+  }
   async request({ slug, method = 'POST', body, requestId }) {
+    this.expireRequests();
     if (!/^[a-z0-9-]{1,80}$/.test(slug)) throw new Error('Invalid service slug');
     if (!/^[a-zA-Z0-9_-]{8,80}$/.test(requestId || '')) throw new Error('A unique requestId of 8-80 characters is required');
     if (!['GET', 'POST', 'PUT', 'PATCH', 'DELETE'].includes(method)) throw new Error('Unsupported method');
@@ -78,19 +122,11 @@ class PaymentsWallet {
     if (this.state.intents.filter(item => item.status === 'pending').length >= 20) throw new Error('Review pending requests first');
     this.busy.add(requestId);
     try {
-      const { service } = await this.json('/api/services/' + slug);
-      if (!service || service.status !== 'live' || service.chainId !== this.chain.chainId) throw new Error('Service is unavailable or on another chain');
-      if (!service.allowedMethods.includes(method)) throw new Error('Method not supported by service');
-      const token = this.chain.supportedTokens[service.currency];
-      if (!token) throw new Error('Token is not supported on this Robinhood network');
-      const amount = ethers.parseUnits(String(service.price), token.decimals);
-      if (amount <= 0n) throw new Error('Invalid price');
+      const quote = await this.quote(slug, method);
       const intent = {
         id: crypto.randomUUID(), requestId, fingerprint, slug, method, body,
         origin: this.baseUrl, chainId: this.chain.chainId, payer: this.state.address,
-        name: String(service.name).slice(0, 120), token: token.symbol,
-        asset: token.address, decimals: token.decimals, amount: amount.toString(),
-        displayAmount: ethers.formatUnits(amount, token.decimals), payTo: ethers.getAddress(service.payoutAddress),
+        ...quote,
         status: 'pending', createdAt: Date.now(), expiresAt: Date.now() + 300000
       };
       this.state.intents.push(intent); this.save(); return intent;
@@ -104,7 +140,9 @@ class PaymentsWallet {
   }
   reject(id) {
     const item = this.get(id);
-    if (item.status !== 'pending') throw new Error('Only unreviewed requests can be rejected');
+    if (!['pending', 'expired'].includes(item.status)) throw new Error('Only unreviewed requests can be rejected');
+    item.reviewHistory ||= [];
+    item.reviewHistory.push({ action: 'rejected', at: Date.now(), source: 'wallet', previousStatus: item.status });
     item.status = 'rejected'; this.save(); return item;
   }
   async complete(id, txHash) {
