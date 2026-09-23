@@ -364,7 +364,11 @@ h2 { font-size: clamp(24px, 2.4vw, 30px); letter-spacing: -0.02em; }
 .workspace .wallet-card .secondary { border-color: var(--line-strong); color: var(--ink); }
 .workspace .wallet-card .secondary:hover { color: var(--black); }
 .workspace .wallet-card .section-heading { flex-wrap: wrap; }
-.owner-card { margin-bottom: 0; }
+.agent-card[hidden] { display: none; }
+.agent-card .agent-toggle { justify-content: flex-start; align-items: center; gap: 12px; margin-bottom: 20px; font-size: 14px; }
+.agent-toggle input { width: 20px; min-height: 20px; height: 20px; margin: 0; accent-color: var(--green); }
+.agent-card .status-line { margin-top: 20px; }
+.owner-card { grid-column: 1 / -1; margin-bottom: 0; }
 .balances { font-size: 26px; margin-top: 24px; }
 .balances > div { padding: 8px 0; border-bottom: 1px solid var(--line); }
 .address { font-size: 12px; line-height: 1.6; }

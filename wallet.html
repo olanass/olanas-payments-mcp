@@ -36,13 +36,13 @@
       <span class="eyebrow">LOCAL AGENT WALLET / MCP PAYMENTS</span>
       <h1>Agent payments.<br>Under your control.</h1>
       <p id="mode-description">Review requests, track payments, and keep control of your wallet.</p>
-      <nav class="wallet-nav" aria-label="Wallet sections"><a href="#funding">01 / Fund</a><a href="#owner-controls" id="policy-nav">02 / Set limits</a><a href="#activity">03 / Track requests</a></nav>
+      <nav class="wallet-nav" aria-label="Wallet sections"><a href="#funding">01 / Fund</a><a href="#agent-payments" id="policy-nav">02 / Set limits</a><a href="#activity">03 / Track requests</a></nav>
     </div>
     <aside class="system-panel" aria-label="Wallet system summary">
       <div class="panel-label"><span id="mode-badge">WALLET</span><b>LOCAL SIGNING</b></div>
       <p class="system-title" id="session-headline">Connecting to companion</p>
       <p class="system-caption" id="session-caption">Reading wallet mode and session state.</p>
-      <div class="session-metrics"><div><span>REMAINING BUDGET</span><strong id="budget-remaining">Not enabled</strong></div><div><span>SESSION ENDS</span><strong id="session-ends">Not enabled</strong></div></div>
+      <div class="session-metrics"><div><span id="budget-label">REMAINING BUDGET</span><strong id="budget-remaining">Not enabled</strong></div><div><span id="ends-label">SESSION ENDS</span><strong id="session-ends">Not enabled</strong></div></div>
       <svg class="signal-path" viewBox="0 0 520 112" preserveAspectRatio="none" aria-hidden="true">
         <path d="M-10 28C100 8 150 76 260 52S400 5 530 34"></path>
         <path d="M-10 38C100 18 150 86 260 62S400 15 530 44"></path>
@@ -65,7 +65,7 @@
       <input id="wallet-link" type="password" autocomplete="off" spellcheck="false" placeholder="Paste the complete local wallet link" required>
       <button type="submit" id="wallet-link-submit">Open local wallet</button>
     </form>
-    <p class="small">This link authorizes this page, not a payment. Never enter your private key here. Owner approval is still required to enable spending.</p>
+    <p class="small">Keep this private link to yourself. In automatic mode, anyone with it can change payment limits. Never enter your private key here.</p>
   </section>
 
   <div class="workspace">
@@ -81,13 +81,30 @@
     <p class="small" id="funding-network">Check the network before sending funds.</p>
   </section>
 
+  <section class="card agent-card" id="agent-payments" hidden>
+    <div class="section-heading"><div><span class="eyebrow">02 / AGENT PAYMENT LIMITS</span><h2>Automatic payments.</h2></div><span class="pill" id="agent-badge">Off</span></div>
+    <p>Set persistent limits for MCP payments. Your agent can pay within them without a password or timed session. Limits and spending survive a restart.</p>
+    <form id="agent-form">
+      <label class="agent-toggle" for="agent-enabled"><input id="agent-enabled" type="checkbox"> Allow automatic agent payments</label>
+      <label for="agent-token">Payment token</label><select id="agent-token"></select>
+      <div class="fields"><div><label for="agent-daily">Daily limit <span>Resets at 00:00 UTC</span></label><input id="agent-daily" inputmode="decimal" required></div><div><label for="agent-per-call">Maximum per call</label><input id="agent-per-call" inputmode="decimal" required></div></div>
+      <div class="fields"><div><label for="agent-gas-daily">Daily ETH gas limit</label><input id="agent-gas-daily" inputmode="decimal" required></div><div><label for="agent-gas-per-call">ETH gas limit per call</label><input id="agent-gas-per-call" inputmode="decimal" required></div></div>
+      <label for="agent-gas-mode">Transaction fees</label><select id="agent-gas-mode"><option value="standard">Standard</option><option value="fast">Fast</option></select>
+      <p class="session-review" id="agent-review" aria-live="polite">Reading automatic payment limits.</p>
+      <button type="submit" id="agent-save">Save automatic payment limits <span aria-hidden="true">&rarr;</span></button>
+    </form>
+    <p id="agent-usage" class="status-line" role="status">Reading today's spending.</p>
+    <p class="small">A zero limit blocks that token. You can edit each token separately. Any service on the configured Olanas launchpad may be paid when its token has a limit.</p>
+    <p class="small">Anyone with this private companion link can edit these limits. The limits are enforced by this app; keep only the funds you want the agent wallet to hold.</p>
+  </section>
+
   <section class="card owner-card" id="owner-controls" hidden>
     <div class="section-heading">
-      <div><span class="eyebrow">02 / AUTHORIZE A SESSION</span><h2>Your limits. Every payment.</h2></div>
+      <div><span class="eyebrow">OPTIONAL / TIMED SESSION</span><h2>Timed owner session.</h2></div>
       <span class="pill" id="policy-badge">Inactive</span>
     </div>
-    <p>Authorize once. Your agent can then approve and pay eligible API requests without a wallet popup. Limits are enforced by this local companion.</p>
-    <label for="owner-password">Owner password <span>Never share in agent chat</span></label>
+    <p>Use this older, timed mode if you prefer it. Enabling a timed session turns off persistent automatic payments.</p>
+    <label for="owner-password">Owner password <span>For timed sessions, recovery and withdrawals; never share in agent chat</span></label>
     <input id="owner-password" type="password" autocomplete="off" placeholder="Enter only in this local wallet">
     <p id="session-status" class="status-line" role="status">No autonomous session enabled.</p>
     <div class="budget-track" id="budget-track" role="meter" aria-label="Session budget reserved or spent" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span id="budget-fill"></span></div>

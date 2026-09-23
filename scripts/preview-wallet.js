@@ -17,14 +17,15 @@ function record(id, approvalStatus, paymentStatus, deliveryStatus, phase, messag
       updatedAt: now, message, ...(phase === 'reserved' ? { status: 'needs_owner_action' } : {}),
       result: deliveryStatus === 'completed' ? { status: 200, contentType: 'application/json' } : null } };
 }
-const records = [record('order-001', 'approved', 'confirmed', 'completed', 'completed'),
-  record('order-002', 'approved', 'submitted', 'not_started', 'submitted'),
-  record('order-003', 'approved', 'unpaid', 'not_started', 'reserved', 'Approval interrupted. Owner review required; no transaction was saved.')];
+const records = [record('order-001', 'approved', 'confirmed', 'completed', 'completed')];
 const state = { preview: true, walletProvider: manual ? 'browser' : 'olanas', address,
-  chain: { name: 'Robinhood Chain' + (testnet ? ' Testnet' : '') + ' (preview)', chainId, networkKey: testnet ? 'testnet' : 'mainnet', tokens: [{ symbol: 'USDG', decimals: 6 }, { symbol: 'ETH', decimals: 18 }] },
+  chain: { name: 'Robinhood Chain' + (testnet ? ' Testnet' : '') + ' (preview)', chainId, networkKey: testnet ? 'testnet' : 'mainnet', tokens: [{ symbol: 'USDG', decimals: 6 }, { symbol: 'ETH', decimals: 18 }, { symbol: 'OLANAS', decimals: 18 }] },
   launchpad: 'Preview only - no launchpad connection', intents: [], remoteOrders: records,
-  policy: manual ? null : { active: true, expiresAt: now + 3600000, token: 'USDG', perCall: '2000', budget: '10000', spent: '6000',
-    gasSpent: '3000000000000', gasBudget: '10000000000000', services: ['startup-pitch-scorer'], recipients: [recipient] } };
+  policy: null,
+  agentPayments: manual ? null : { enabled: true, revision: 1, day: new Date(now).toISOString().slice(0, 10),
+    limits: { USDG: { daily: '0', perCall: '0' }, ETH: { daily: '0', perCall: '0' }, OLANAS: { daily: '50', perCall: '10' } },
+    spent: { USDG: '0', ETH: '0', OLANAS: '12.5' }, gasDaily: '0.0001', gasPerCall: '0.00001',
+    gasSpent: '0.000003', gasMode: 'standard', resetsAt: new Date(Date.parse(new Date(now).toISOString().slice(0, 10) + 'T00:00:00Z') + 86400000).toISOString() } };
 const assets = { '/': ['wallet.html', 'text/html'], '/wallet.js': ['wallet.js', 'text/javascript'], '/session-presets.js': ['session-presets.js', 'text/javascript'], '/wallet.css': ['wallet.css', 'text/css'], '/ethers.js': ['dist/ethers.js', 'text/javascript'] };
 const server = http.createServer((req, res) => {
   res.setHeader('Cache-Control', 'no-store'); res.setHeader('X-Content-Type-Options', 'nosniff');
@@ -33,7 +34,7 @@ const server = http.createServer((req, res) => {
   const json = (status, body) => { res.writeHead(status, { 'Content-Type': 'application/json' }); res.end(JSON.stringify(body)); };
   if (req.method !== 'GET') return json(403, { error: 'Read-only preview. No payments, transfers or policy changes are available.' });
   if (url.pathname === '/api/state') return json(200, state);
-  if (url.pathname === '/api/balance') return json(200, { address, balances: [{ token: 'USDG', amount: '0.050' }, { token: 'ETH', amount: '0.001' }] });
+  if (url.pathname === '/api/balance') return json(200, { address, balances: [{ token: 'USDG', amount: '0.050' }, { token: 'ETH', amount: '0.001' }, { token: 'OLANAS', amount: '100' }] });
   if (url.pathname.startsWith('/api/orders/')) {
     const record = records.find(r => r.id === url.pathname.split('/').at(-1));
     if (!record) return json(404, { error: 'Unknown preview order' });

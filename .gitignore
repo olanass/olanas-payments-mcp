@@ -19,6 +19,7 @@ coverage/
 # Separate repositories/worktrees managed independently
 /.main-worktree/
 /startup-pitch-scorer/
+/onchain-explainer/
 
 # Local configuration and credentials (keep shareable examples)
 .env

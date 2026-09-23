@@ -6,7 +6,8 @@ const vm = require('node:vm');
 
 // Run the actual client startup against the IDs/classes in the shipped HTML.
 // Requests and wallet extensions are mocked; no funds or real accounts are used.
-function client(mode, { credential = 'test-token', status = 200, intents = [], remoteOrders = [], policy = null, orderResult = null } = {}) {
+function client(mode, { credential = 'test-token', status = 200, intents = [], remoteOrders = [], policy = null,
+  agentPayments = null, orderResult = null, tokens = [{ symbol: 'USDG', decimals: 6 }] } = {}) {
   const html = fs.readFileSync('wallet.html', 'utf8');
   const nodes = new Map();
   function node() {
@@ -41,7 +42,7 @@ function client(mode, { credential = 'test-token', status = 200, intents = [], r
   const storage = new Map(credential ? [['olanas-companion-token', credential]] : []);
   const sessionStorage = { getItem: k => storage.get(k), setItem: (k,v) => storage.set(k,v), removeItem: k => storage.delete(k) };
   const state = { walletProvider: mode, address: null, chain: { name: 'Test chain', chainId: 4663,
-    tokens: [{ symbol: 'USDG', decimals: 6 }] }, intents, remoteOrders, policy, launchpad: 'https://example.test' };
+    tokens }, intents, remoteOrders, policy, agentPayments, launchpad: 'https://example.test' };
   let now = Date.now();
   let reloads = 0;
   let poll;
@@ -53,8 +54,14 @@ function client(mode, { credential = 'test-token', status = 200, intents = [], r
     ethers: require('ethers').ethers,
     OlanasSessionPresets: require('./session-presets'),
     matchMedia: () => ({ matches: false }), setInterval: fn => { poll = fn; },
-    fetch: async (url, options) => { requests.push(url); apiCalls.push({ url, options }); if (offline) throw Error('offline'); return { status, ok: status === 200,
-      json: async () => url === '/api/state' ? structuredClone(state) : url.startsWith('/api/orders/') ? orderResult : { address: null, balances: [] } }; }
+    fetch: async (url, options) => { requests.push(url); apiCalls.push({ url, options }); if (offline) throw Error('offline');
+      if (url === '/api/agent-payments') {
+        const input = JSON.parse(options.body); state.agentPayments = { ...state.agentPayments, enabled: input.enabled,
+          revision: state.agentPayments.revision + 1, gasDaily: input.gasDaily, gasPerCall: input.gasPerCall,
+          gasMode: input.gasMode, limits: { ...state.agentPayments.limits, [input.token]: { daily: input.daily, perCall: input.perCall } } };
+      }
+      return { status, ok: status === 200,
+        json: async () => url === '/api/state' ? structuredClone(state) : url === '/api/agent-payments' ? structuredClone(state.agentPayments) : url.startsWith('/api/orders/') ? orderResult : { address: null, balances: [] } }; }
   });
   vm.runInContext(fs.readFileSync('wallet.js', 'utf8'), context);
   return { context, nodes, requests, apiCalls, events, state, setOffline: value => { offline = value; }, advance: ms => { now += ms; }, get reloads() { return reloads; }, poll: () => poll?.() };
@@ -134,6 +141,28 @@ for (const mode of ['browser', 'olanas']) {
     assert.equal(app.nodes.get('token').options.length, 1);
   });
 }
+test('automatic payment limit is editable in the UI without an owner password', async () => {
+  const settings = { enabled: false, revision: 1, day: '2026-09-23',
+    limits: { USDG: { daily: '0', perCall: '0' }, OLANAS: { daily: '50', perCall: '10' } },
+    spent: { USDG: '0', OLANAS: '0' }, gasDaily: '0.0001', gasPerCall: '0.00001',
+    gasSpent: '0', gasMode: 'standard', resetsAt: '2026-09-24T00:00:00.000Z' };
+  const app = client('olanas', { agentPayments: settings,
+    tokens: [{ symbol: 'USDG', decimals: 6 }, { symbol: 'OLANAS', decimals: 18 }] });
+  await settle();
+  assert.equal(app.nodes.get('agent-payments').hidden, false);
+  assert.equal(app.nodes.get('agent-token').value, 'OLANAS');
+  assert.equal(app.nodes.get('agent-daily').value, '50');
+  app.nodes.get('agent-enabled').checked = true;
+  app.nodes.get('agent-daily').value = '75';
+  app.nodes.get('agent-daily').oninput();
+  app.context.confirm = () => true;
+  await app.nodes.get('agent-form').onsubmit({ preventDefault() {} });
+  const saved = app.apiCalls.find(call => call.url === '/api/agent-payments');
+  assert.ok(saved);
+  assert.equal(saved.options.headers['x-owner-password'], undefined);
+  assert.equal(JSON.parse(saved.options.body).daily, '75');
+  assert.equal(app.nodes.get('agent-badge').textContent, 'On');
+});
 test('a fresh link in the same tab reloads to consume its token', () => {
   const app = client('browser', { credential: null });
   assert.deepEqual(app.requests, []);

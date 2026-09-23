@@ -73,6 +73,15 @@ test('packaged wallet serves matching assets, authenticates owner controls and e
     assert.equal(browserConnect.status, 400);
     assert.equal((await state()).address, wallet.address, 'A browser connection must not replace the imported wallet');
     assert.equal((await state()).signedTransactions, undefined);
+    const autoSettings = { enabled: true, token: 'OLANAS', daily: '50', perCall: '10',
+      gasDaily: '0.0001', gasPerCall: '0.00001', gasMode: 'standard' };
+    const saveAuto = await request('/api/agent-payments', { method: 'POST', headers: { ...headers, 'content-type': 'application/json' },
+      body: JSON.stringify(autoSettings) });
+    assert.equal(saveAuto.status, 200, 'Agent limits need the private companion link but no owner password');
+    assert.equal((await state()).agentPayments.enabled, true);
+    assert.equal((await state()).agentPayments.limits.OLANAS.daily, '50');
+    assert.equal((await request('/api/agent-payments', { method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(autoSettings) })).status, 401);
     const missing = await request('/api/unknown', { headers });
     assert.equal(missing.status, 404); assert.match((await missing.json()).error, /Unknown companion endpoint/);
     const balance = await request('/api/balance', { headers });
@@ -89,6 +98,7 @@ test('packaged wallet serves matching assets, authenticates owner controls and e
       assert.equal(enabled.status, 200);
       const policy = await enabled.json();
       assert.equal(policy.active, true); assert.equal(policy.gasMode, gasMode);
+      assert.equal((await state()).agentPayments.enabled, false, 'Timed session replaces automatic mode');
       assert.equal(policy.perCall, '2000'); assert.equal(policy.budget, '10000');
       assert.equal(policy.gasPerCall, '10000000000000');
       assert.equal((await post('/api/owner/revoke', {})).status, 200);

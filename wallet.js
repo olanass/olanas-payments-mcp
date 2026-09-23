@@ -14,6 +14,8 @@ let lastState = '';
 let sessionAuthorized = Boolean(credential);
 let companionAvailable = false;
 let activityFilter = 'all';
+let agentFormDirty = false;
+let agentRevisionSeen = 0;
 const savedResultPreviews = new Map();
 function setTheme(theme) {
   document.documentElement.dataset.theme = theme;
@@ -70,6 +72,7 @@ function markCompanionUnavailable() {
   $('funding-title').textContent = 'Wallet access required.';
   $('connect').hidden = true;
   $('owner-controls').hidden = true;
+  $('agent-payments').hidden = true;
   $('balances').textContent = sessionAuthorized ? 'Balance unavailable' : 'Authorize this tab to view balances';
   $('address').textContent = 'Wallet address not verified';
   $('budget-remaining').textContent = 'Unknown';
@@ -170,6 +173,7 @@ function syncDisabled() {
   $('refresh').disabled = working || !sessionAuthorized || !companionAvailable;
   $('enable-session').disabled = working || !sessionAuthorized || !companionAvailable || Boolean(state?.preview) || blocked;
   $('revoke').disabled = working || !sessionAuthorized || !companionAvailable || !active || Boolean(state?.preview);
+  $('agent-save').disabled = working || !sessionAuthorized || !companionAvailable || state?.walletProvider !== 'olanas' || Boolean(state?.preview);
   $('copy').disabled = working || !sessionAuthorized || !companionAvailable || !state?.address;
 }
 function sessionDraft() {
@@ -188,6 +192,42 @@ function updateSessionReview() {
     $('session-review').textContent = 'Up to ' + p.budget + ' ' + p.token + ' total, ' + p.perCall + ' ' + p.token + ' per API call. Gas capped at ' + p.gasPerCall + ' ETH per transaction and ' + p.gasBudget + ' ETH for the session. Higher fees stop the payment.';
   } catch (_) { $('session-review').textContent = 'Enter a positive budget to review your limits before enabling spending.'; }
 }
+function loadAgentForm() {
+  const settings = state?.agentPayments;
+  if (!settings) return;
+  const token = $('agent-token').value;
+  const limit = settings.limits[token] || { daily: '0', perCall: '0' };
+  $('agent-enabled').checked = settings.enabled;
+  $('agent-daily').value = limit.daily;
+  $('agent-per-call').value = limit.perCall;
+  $('agent-gas-daily').value = settings.gasDaily;
+  $('agent-gas-per-call').value = settings.gasPerCall;
+  $('agent-gas-mode').value = settings.gasMode;
+  agentRevisionSeen = settings.revision;
+  agentFormDirty = false;
+  updateAgentReview();
+}
+function updateAgentReview() {
+  $('agent-review').textContent = ($('agent-enabled').checked ? 'Agent payments on. ' : 'Agent payments off. ') +
+    'Up to ' + $('agent-daily').value + ' ' + ($('agent-token').value || 'tokens') + ' per UTC day, ' +
+    $('agent-per-call').value + ' per call. Gas: ' + $('agent-gas-daily').value + ' ETH per day, ' +
+    $('agent-gas-per-call').value + ' ETH per call. Saving a limit never clears spending already recorded today.';
+}
+function updateAgentPanel() {
+  const settings = state?.agentPayments;
+  if (!settings) return;
+  if (!$('agent-token').options.length) {
+    for (const asset of state.chain.tokens) { const option = element('option', asset.symbol, $('agent-token')); option.value = asset.symbol; }
+    $('agent-token').value = state.chain.tokens.some(asset => asset.symbol === 'OLANAS') ? 'OLANAS' : state.chain.tokens[0]?.symbol;
+  }
+  if (!agentFormDirty && agentRevisionSeen !== settings.revision) loadAgentForm();
+  const token = $('agent-token').value, limit = settings.limits[token] || { daily: '0', perCall: '0' };
+  $('agent-badge').textContent = settings.enabled ? 'On' : 'Off';
+  $('agent-badge').className = 'pill' + (settings.enabled ? ' is-active' : '');
+  $('agent-usage').textContent = 'Today: ' + (settings.spent[token] || '0') + ' / ' + limit.daily + ' ' + token +
+    ' reserved or spent. Gas: ' + settings.gasSpent + ' / ' + settings.gasDaily + ' ETH. Resets ' +
+    new Date(settings.resetsAt).toLocaleString() + ' (00:00 UTC).';
+}
 function orderState(remote) {
   const s = remote.summary || {};
   if (s.deliveryStatus === 'completed') return { label: 'Result saved', tone: 'success', bucket: 'completed' };
@@ -205,17 +245,27 @@ function legacyBucket(item) {
 }
 function updateOverview() {
   const native = state.walletProvider === 'olanas', p = state.policy;
+  const automatic = native && state.agentPayments?.enabled;
   const active = native && p?.active && p.expiresAt > Date.now();
   $('mode-badge').textContent = native ? 'AUTONOMOUS MODE' : 'MANUAL MODE';
-  $('session-headline').textContent = !native ? 'You approve each payment.' : active ? 'Session active.' : p?.expiresAt <= Date.now() ? 'Session expired.' : 'Agent spending is off.';
-  $('session-caption').textContent = !native ? 'Your browser wallet asks before funds move.' : active ? 'Eligible requests can be paid without another wallet popup.' : 'Fund the wallet and enable a bounded session to start.';
+  $('session-headline').textContent = !native ? 'You approve each payment.' : automatic ? 'Automatic payments on.' : active ? 'Session active.' : p?.expiresAt <= Date.now() ? 'Session expired.' : 'Agent spending is off.';
+  $('session-caption').textContent = !native ? 'Your browser wallet asks before funds move.' : automatic ? 'Eligible MCP requests are paid within your daily limits, without a password prompt.' : active ? 'Eligible requests can be paid without another wallet popup.' : 'Fund the wallet and set an automatic payment limit to start.';
   $('policy-badge').textContent = active ? 'Active' : 'Inactive';
   $('policy-badge').className = 'pill' + (active ? ' is-active' : '');
   $('policy-nav').hidden = !native;
-  $('mode-description').textContent = native ? 'Fund your wallet. Set a spending boundary. Let your agent pay for APIs and bring back the result.' : 'Review the exact request, approve it in your wallet, and follow the payment to its saved result.';
+  $('mode-description').textContent = native ? 'Fund your wallet. Set a daily limit. Let your agent pay for APIs and bring back the result.' : 'Review the exact request, approve it in your wallet, and follow the payment to its saved result.';
   $('funding-network').textContent = 'Funding network: ' + state.chain.name + '. Tokens on other networks will not appear here.';
   $('budget-remaining').textContent = 'Not enabled'; $('session-ends').textContent = 'Not enabled';
-  if (native && p) {
+  $('budget-label').textContent = automatic ? 'OLANAS LEFT TODAY' : 'REMAINING BUDGET';
+  $('ends-label').textContent = automatic ? 'DAILY RESET' : 'SESSION ENDS';
+  if (automatic) {
+    const a = state.agentPayments, cap = a.limits.OLANAS;
+    if (cap) {
+      const left = ethers.parseUnits(cap.daily, 18) - ethers.parseUnits(a.spent.OLANAS || '0', 18);
+      $('budget-remaining').textContent = ethers.formatUnits(left > 0n ? left : 0n, 18) + ' OLANAS';
+    }
+    $('session-ends').textContent = '00:00 UTC';
+  } else if (native && p) {
     const decimals = state.chain.tokens.find(t => t.symbol === p.token)?.decimals;
     if (decimals !== undefined) {
       const remaining = BigInt(p.budget) > BigInt(p.spent) ? BigInt(p.budget) - BigInt(p.spent) : 0n;
@@ -263,7 +313,7 @@ function renderOrder(remote, native, parent = $('requests')) {
   if (s.message) element('p', s.message, card).className = 'order-message';
   if (native && remote.phase === 'reserved' && !remote.txHash) element('p', 'This approval was interrupted before a payment transaction was saved. Use Cancel interrupted approval below to check and cancel the unpaid order, then enable a new session.', card).className = 'order-message';
   if (status.label === 'Delivery uncertain') element('p', 'Payment may have completed and the API may have executed. Do not pay again. Check with the service before any retry.', card).className = 'order-message';
-  if (s.result) element('p', 'Saved response: HTTP ' + s.result.status + (s.result.status >= 400 ? ' - the service returned an error. Do not pay again automatically.' : ''), card);
+  if (s.result) element('p', 'Paid API result saved · HTTP ' + s.result.status + '. Select View paid API result below to read the response.' + (s.result.status >= 400 ? ' The service returned an error; do not pay again automatically.' : ''), card);
   const details = element('details', '', card); element('summary', 'Exact request & payment details', details);
   element('pre', JSON.stringify({ orderId: remote.id, requestId: remote.requestId, request: remote.input,
     quote: s.quote, payer: s.payer || state.address, transaction: s.txHash || remote.txHash || null }, null, 2), details);
@@ -271,7 +321,7 @@ function renderOrder(remote, native, parent = $('requests')) {
   archiveAction(remote, actions);
   const resultArea = element('div', '', card);
   if (!remote.id) element('p', 'Order creation was interrupted. Ask the agent to retry this same request ID: ' + remote.requestId + '. Do not create a replacement purchase.', card).className = 'order-message';
-  if (remote.id) action('Check status / view result', actions, async () => {
+  if (remote.id) action(s.result ? 'View paid API result' : 'Check status / view result', actions, async () => {
     const response = await api('/orders/' + encodeURIComponent(remote.id));
     const result = response.order?.result;
     remote.summary = { ...s, approvalStatus: response.order?.approvalStatus, paymentStatus: response.order?.paymentStatus, deliveryStatus: response.order?.deliveryStatus };
@@ -310,17 +360,19 @@ async function refresh() {
   $('funding-title').textContent = state.walletProvider === 'olanas' ? 'Your local wallet.' : 'Your browser wallet.';
   $('wallet-access').hidden = true;
   $('owner-controls').hidden = state.walletProvider !== 'olanas';
+  $('agent-payments').hidden = state.walletProvider !== 'olanas';
   $('connect').hidden = state.walletProvider !== 'browser';
   $('address').textContent = state.address || 'No wallet connected';
   $('wallet-source').textContent = state.walletProvider === 'olanas'
     ? 'Using the local wallet configured in your terminal. No browser wallet connection is needed.'
     : 'This companion is in browser-wallet mode. To use your imported wallet, restart it with the environment file created by the import script.';
-  if (firstLoad && state.walletProvider === 'olanas' && !state.preview) notify('Olanas wallet connected. Review your balance and enable a bounded session when ready.');
+  if (firstLoad && state.walletProvider === 'olanas' && !state.preview) notify('Olanas wallet connected. Review your balance and automatic payment limits.');
   if (state.preview) notify('READ-ONLY PREVIEW / Example data. No wallet is connected and no payments can be sent.');
   for (const item of state.intents) {
     if (item.status === 'pending' && item.expiresAt <= Date.now()) item.status = 'expired';
   }
   updateOverview();
+  updateAgentPanel();
   const serialized = JSON.stringify({ state, activityFilter, sessionExpired: Boolean(state.policy && state.policy.expiresAt <= Date.now()), expiredOrders: (state.remoteOrders || []).map(r => orderState(r).label) });
   if (serialized === lastState) return;
   const native = state.walletProvider === 'olanas';
@@ -329,7 +381,7 @@ async function refresh() {
   document.querySelector('.wallet-card .pill').textContent = native ? 'Olanas wallet' : 'Self-custody';
   document.querySelector('.requests .pill').textContent = native ? 'Autonomous / owner limits' : 'Manual approval';
   if (native) {
-    if ($('notice').textContent === 'Connect a browser wallet to get started.') notify('Olanas wallet configured. Fund it on Robinhood and enable a bounded session in owner controls.');
+    if ($('notice').textContent === 'Connect a browser wallet to get started.') notify('Olanas wallet configured. Fund it on Robinhood and set automatic payment limits.');
     document.querySelector('#send button').textContent = 'Confirm owner withdrawal';
     document.querySelector('#send .small').textContent = 'Owner password required. Standard network fees with a 0.00001 ETH gas cap. This sends directly from your Olanas wallet.';
     const policy = state.policy;
@@ -361,7 +413,7 @@ async function refresh() {
   if (!buckets.length) {
     const empty = element('div', '', $('requests')); empty.className = 'empty-state';
     element('h3', 'Your next request starts in chat.', empty);
-    element('p', native ? 'After funding and enabling a session, ask your agent to find an API and call it with a unique request ID. The payment and result will appear here.' : 'Ask your agent to find an API. Open its approval link to review and pay for the request.', empty);
+    element('p', native ? 'After funding and enabling automatic payments, ask your agent to find an API and call it with a unique request ID. The payment and result will appear here.' : 'Ask your agent to find an API. Open its approval link to review and pay for the request.', empty);
   } else if (activityFilter !== 'all' && activityFilter !== 'archived' && !buckets.includes(activityFilter)) element('p', 'No requests in this view.', $('requests')).className = 'empty-state';
   for (const item of [...intents].reverse()) {
     if (activityFilter !== 'all' && activityFilter !== 'archived' && legacyBucket(item) !== activityFilter) continue;
@@ -455,6 +507,25 @@ $('activity-filter').onchange = () => { activityFilter = $('activity-filter').va
 for (const id of ['session-budget', 'per-call', 'session-token', 'gas-mode', 'session-minutes']) {
   $(id).oninput = updateSessionReview; $(id).onchange = updateSessionReview;
 }
+$('agent-token').onchange = loadAgentForm;
+for (const id of ['agent-enabled', 'agent-daily', 'agent-per-call', 'agent-gas-daily', 'agent-gas-per-call', 'agent-gas-mode']) {
+  $(id).oninput = $(id).onchange = () => { agentFormDirty = true; updateAgentReview(); };
+}
+$('agent-form').onsubmit = event => { event.preventDefault(); return run(async () => {
+  const settings = { enabled: $('agent-enabled').checked, token: $('agent-token').value,
+    daily: $('agent-daily').value.trim(), perCall: $('agent-per-call').value.trim(),
+    gasDaily: $('agent-gas-daily').value.trim(), gasPerCall: $('agent-gas-per-call').value.trim(),
+    gasMode: $('agent-gas-mode').value };
+  if (!confirm((settings.enabled ? 'Enable or update' : 'Disable') + ' automatic agent payments? ' +
+      settings.token + ': ' + settings.daily + ' per UTC day and ' + settings.perCall + ' per call. ' +
+      'Gas: ' + settings.gasDaily + ' ETH per day and ' + settings.gasPerCall + ' per call. ' +
+      'Anyone with this private companion link can change these limits.')) return;
+  const result = await api('/agent-payments', settings);
+  state.agentPayments = result;
+  agentFormDirty = false;
+  agentRevisionSeen = 0;
+  notify(settings.enabled ? 'Automatic payment limits saved. Eligible MCP calls can pay without a password prompt.' : 'Automatic agent payments disabled.');
+}); };
 $('copy').onclick = () => run(async () => { if (!state.address) throw new Error('Connect your wallet first'); await navigator.clipboard.writeText(state.address); notify('Funding address copied. Use ' + state.chain.name + ' only.'); });
 $('send').onsubmit = event => { event.preventDefault(); return run(async () => {
   const recipient = ethers.getAddress($('recipient').value.trim());

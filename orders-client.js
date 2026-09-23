@@ -1,6 +1,22 @@
 'use strict';
 const crypto = require('node:crypto');
 
+// The order API stores response bytes as base64. Surface JSON directly to MCP
+// clients so an agent can show the paid result without asking for another API
+// execution. The original order remains available for exact-byte inspection.
+function serviceResponse(result) {
+  if (!result) return null;
+  const response = { status: result.status, contentType: result.contentType };
+  if (result.encoding !== 'base64' || !/^application\/(?:[\w.-]+\+)?json(?:\s*;|\s*$)/i.test(result.contentType || '') ||
+      typeof result.body !== 'string' || result.body.length > 350000) return response;
+  try {
+    const bytes = Buffer.from(result.body, 'base64');
+    if (bytes.length > 256000 || bytes.toString('base64').replace(/=+$/, '') !== result.body.replace(/=+$/, '')) return response;
+    response.json = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(bytes));
+  } catch (_) { /* The saved response stays available in order.result. */ }
+  return response;
+}
+
 // Manual purchases are owned by the launchpad order engine. The companion only
 // journals access credentials; it never reconstructs prices or signs payments.
 class OrdersClient {
@@ -25,7 +41,7 @@ class OrdersClient {
   }
   output(record, order) {
     this.remember(record, order);
-    return { order, id: record.id, requestId: record.requestId,
+    return { serviceResponse: serviceResponse(order.result), order, id: record.id, requestId: record.requestId,
       approvalUrl: record.origin + '/orders/' + record.id + '#' + record.accessToken,
       instruction: 'Open approvalUrl for human wallet approval. Reuse this order. No local payment is pending. Read status after approval; never create a replacement payment.' };
   }
@@ -75,4 +91,4 @@ class OrdersClient {
     return this.output(record, order);
   }
 }
-module.exports = { OrdersClient };
+module.exports = { OrdersClient, serviceResponse };

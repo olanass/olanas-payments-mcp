@@ -10,6 +10,7 @@ const { OrderEngine } = require('./.main-worktree/src/server/orders/engine');
 const { ROBINHOOD_CHAIN_CONFIG: chain } = require('./.main-worktree/src/server/config/chain');
 const { OrdersClient } = require('./orders-client');
 const { AutonomousOrders } = require('./autonomous-orders');
+const agentPayments = require('./agent-payments');
 
 function fixture(t) {
   const db = createClient({ url: 'file::memory:' }); t.after(() => db.close());
@@ -183,4 +184,50 @@ test('wallet preflight failure is owner-actionable and leaves budgets untouched'
   const result = await f.auto.execute(f.input);
   assert.equal(result.status, 'needs_owner_action'); assert.match(result.message, /Insufficient token balance/);
   assert.equal(f.wallet.state.policy.spent, '0'); assert.equal(f.signs, 0);
+});
+test('passwordless daily limits pay once per request and survive restart and edits', async t => {
+  const f = fixture(t);
+  const settings = { enabled: true, token: 'USDG', daily: '0.004', perCall: '0.002',
+    gasDaily: '0.001', gasPerCall: '0.0001', gasMode: 'standard' };
+  f.auto.configureAgentPayments(settings);
+  assert.equal(f.wallet.state.policy.active, false, 'Timed session must not run alongside agent payments');
+  assert.equal((await f.auto.execute(f.input)).status, 'completed');
+  assert.equal((await f.auto.execute(f.input)).status, 'completed');
+  assert.equal(f.signs, 1, 'Same request ID must not pay twice');
+  assert.equal((await f.auto.execute({ ...f.input, requestId: 'auto-pitch-002' })).status, 'completed');
+  assert.equal(f.wallet.state.agentPayments.spent.USDG, '4000');
+  f.auto = new AutonomousOrders(f.wallet, f.signer, f.client, { confirmationWaitMs: 0 });
+  assert.equal(f.wallet.state.agentPayments.enabled, true);
+  const blocked = await f.auto.execute({ ...f.input, requestId: 'auto-pitch-003' });
+  assert.equal(blocked.status, 'needs_owner_action'); assert.match(blocked.message, /daily limit/);
+  assert.equal(f.signs, 2);
+  f.auto.configureAgentPayments({ ...settings, daily: '0.006' });
+  assert.equal(f.wallet.state.agentPayments.spent.USDG, '4000', 'Editing must not erase prior spending');
+  assert.equal((await f.auto.execute({ ...f.input, requestId: 'auto-pitch-003' })).status, 'completed');
+  assert.equal(f.wallet.state.agentPayments.spent.USDG, '6000');
+});
+test('automatic limits reject invalid caps and changes before signing prevent broadcast', async t => {
+  const f = fixture(t);
+  const settings = { enabled: true, token: 'USDG', daily: '0.004', perCall: '0.002',
+    gasDaily: '0.001', gasPerCall: '0.0001', gasMode: 'standard' };
+  assert.throws(() => f.auto.configureAgentPayments({ ...settings, perCall: '0.005' }), /per-call limit/i);
+  assert.throws(() => f.auto.configureAgentPayments({ ...settings, gasPerCall: '0.002' }), /gas limit/i);
+  f.auto.configureAgentPayments(settings);
+  f.signer.prepare = async () => {
+    f.auto.configureAgentPayments({ ...settings, enabled: false });
+    return { transaction: { nonce: 7 }, gasCost: 10n };
+  };
+  assert.equal((await f.auto.execute(f.input)).status, 'needs_owner_action');
+  assert.equal(f.signs, 0); assert.equal(f.broadcasts.length, 0);
+});
+test('UTC daily rollover resets counters while preserving configured limits', async t => {
+  const f = fixture(t);
+  f.auto.configureAgentPayments({ enabled: true, token: 'USDG', daily: '0.004', perCall: '0.002',
+    gasDaily: '0.001', gasPerCall: '0.0001', gasMode: 'standard' });
+  assert.equal((await f.auto.execute(f.input)).status, 'completed');
+  const before = f.wallet.state.agentPayments;
+  agentPayments.rollDay(f.wallet, Date.parse(before.day + 'T00:00:00Z') + 86400000);
+  assert.equal(f.wallet.state.agentPayments.spent.USDG, undefined);
+  assert.equal(f.wallet.state.agentPayments.gasSpent, '0');
+  assert.equal(f.wallet.state.agentPayments.limits.USDG.daily, '0.004');
 });

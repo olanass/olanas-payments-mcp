@@ -1,7 +1,7 @@
 'use strict';
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const { OrdersClient } = require('./orders-client');
+const { OrdersClient, serviceResponse } = require('./orders-client');
 function fixture() {
   const calls = [], saved = [];
   const wallet = { baseUrl: 'https://example.test', state: { intents: [] },
@@ -58,4 +58,28 @@ test('read-only status checks preserve a local owner-action warning', async () =
   f.client.remember(record, response.order, 'needs_owner_action', 'Insufficient token balance');
   await f.client.status(record.id);
   assert.equal(record.summary.status, 'needs_owner_action'); assert.equal(record.summary.message, 'Insufficient token balance');
+});
+
+test('paid JSON is visible in MCP output without executing the service again', async () => {
+  const f = fixture();
+  await f.client.request(f.input);
+  const payload = { explanation: 'Transfer observed', amount: '10000000000000000000' };
+  f.wallet.fetch = async (url, options) => {
+    f.calls.push({ url, options });
+    return new Response(JSON.stringify({ id: 'ord_test', quote: { name: 'Explainer' },
+      approvalStatus: 'approved', paymentStatus: 'confirmed', deliveryStatus: 'completed',
+      result: { status: 200, contentType: 'application/json; charset=utf-8', encoding: 'base64',
+        body: Buffer.from(JSON.stringify(payload)).toString('base64') } }));
+  };
+  const output = await f.client.status('ord_test');
+  assert.deepEqual(output.serviceResponse, { status: 200, contentType: 'application/json; charset=utf-8', json: payload });
+  assert.equal(f.calls.at(-1).options.method, 'GET');
+  assert.equal(f.calls.length, 2);
+});
+
+test('malformed or oversized saved data is not represented as decoded JSON', () => {
+  assert.deepEqual(serviceResponse({ status: 200, contentType: 'application/json', encoding: 'base64', body: 'not-base64!' }),
+    { status: 200, contentType: 'application/json' });
+  assert.deepEqual(serviceResponse({ status: 200, contentType: 'application/json', encoding: 'base64', body: 'A'.repeat(350001) }),
+    { status: 200, contentType: 'application/json' });
 });
