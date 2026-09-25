@@ -6,8 +6,11 @@ const { createClient } = require('@libsql/client');
 process.env.NODE_ENV = 'test';
 process.env.TURSO_DATABASE_URL = 'file::memory:';
 process.env.VAULT_MASTER_SECRET = 'autonomous-tests-only-not-production';
-const { OrderEngine } = require('./.main-worktree/src/server/orders/engine');
-const { ROBINHOOD_CHAIN_CONFIG: chain } = require('./.main-worktree/src/server/config/chain');
+const path = require('node:path');
+const launchpadSource = process.env.OLANAS_LAUNCHPAD_SOURCE
+  ? path.resolve(process.env.OLANAS_LAUNCHPAD_SOURCE) : path.join(__dirname, '.main-worktree');
+const { OrderEngine } = require(path.join(launchpadSource, 'src/server/orders/engine'));
+const { ROBINHOOD_CHAIN_CONFIG: chain } = require(path.join(launchpadSource, 'src/server/config/chain'));
 const { OrdersClient } = require('./orders-client');
 const { AutonomousOrders } = require('./autonomous-orders');
 const agentPayments = require('./agent-payments');

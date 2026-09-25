@@ -12,7 +12,7 @@ before running the updated companion; validate funded transactions on testnet.
 
 ### Preview the local wallet UI
 
-From this source checkout, run `npm run build` followed by `npm run preview:wallet`.
+From this source checkout, run `npm ci` followed by `npm run preview:wallet`. The tracked `dist/` directory contains the packaged runtime.
 Open `http://127.0.0.1:4783/#preview`. This uses labeled example data and rejects
 all payment, withdrawal, and policy-change requests. No real wallet is loaded.
 Use `node scripts/preview-wallet.js --manual` to preview browser-wallet mode.
@@ -27,7 +27,7 @@ to preview testnet. For a real side-wallet recording, follow the
 Install directly from GitHub in one command:
 
 ```powershell
-npx --yes github:olanass/web#olanas-payments-mcp
+npx --yes github:olanass/olanas-payments-mcp
 ```
 
 The installer asks which MCP client to configure:
@@ -41,13 +41,14 @@ The installer asks which MCP client to configure:
 For non-interactive setup, pass the matching client value:
 
 ```powershell
-npx --yes github:olanass/web#olanas-payments-mcp --client codex --auto-config
+npx --yes github:olanass/olanas-payments-mcp --client codex --auto-config
 ```
 
 From a cloned repository:
 
 ```powershell
-npm run payments:install
+npm ci
+node cli.js
 ```
 
 After the standalone npm package is published, the shorter equivalent will be:
@@ -281,3 +282,20 @@ MCP clients can call `archive_request` with `{ "id": "<order or request ID>" }`.
 Pass `"archived": false` to restore an entry. `list_payments` hides archived
 entries by default; pass `"includeArchived": true` to include them. Restart the
 MCP companion after updating its package to load the new tool and endpoint.
+
+## Repository source
+
+This standalone repository preserves the former `olanass/web` branch `olanas-payments-mcp` at commit `41dd1dd`. The installer uses the bundled runtime in `dist/`. It does not include the separate prepaid Orbio client changes.
+
+Rebuilding the runtime currently requires the launchpad source: clone `olanass/web` separately, set `OLANAS_LAUNCHPAD_SOURCE` to its checkout, and provide its build dependencies (including esbuild). A normal wallet installation uses the committed runtime and does not need the launchpad checkout.
+
+For source development and the full test suite, install dependencies in the separate web checkout and use (PowerShell, with both repos in the same parent directory):
+
+```powershell
+$env:OLANAS_LAUNCHPAD_SOURCE = (Resolve-Path ..\web).Path
+$env:NODE_PATH = Join-Path $env:OLANAS_LAUNCHPAD_SOURCE 'node_modules'
+npm test
+npm run test:runtime
+```
+
+The integration tests use temporary wallets and mocked payments. These environment variables are development settings, not required by the installed bundled wallet.

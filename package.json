@@ -4,11 +4,11 @@
   "description": "Native Olanas wallet and x402 payments MCP installer",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/olanass/web.git"
+    "url": "git+https://github.com/olanass/olanas-payments-mcp.git"
   },
-  "homepage": "https://github.com/olanass/web/tree/olanas-payments-mcp#readme",
+  "homepage": "https://github.com/olanass/olanas-payments-mcp#readme",
   "bugs": {
-    "url": "https://github.com/olanass/web/issues"
+    "url": "https://github.com/olanass/olanas-payments-mcp/issues"
   },
   "keywords": [
     "mcp",
