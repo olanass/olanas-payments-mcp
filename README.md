@@ -106,9 +106,28 @@ npx olanas-payments-mcp
 
 Select Claude Desktop, Claude Code, Codex, Gemini CLI, or manual configuration
 for another MCP-compatible tool.
-The installer creates a native wallet automatically, encrypts it locally, saves
-a generated owner password in the private installation directory, and optionally
-configures the selected MCP client. It never asks for an API key or seed phrase.
+On a fresh interactive installation, choose to create a new wallet or import
+an existing wallet's private key. Import uses hidden terminal input and asks you
+to confirm the derived address before saving. The installer encrypts the wallet
+locally, prompts you to choose and confirm an owner password using hidden input,
+and optionally configures the selected MCP client. Enter a private key only in
+your own terminal, never in chat or as a command argument. No seed phrase or API
+key is required. Use at least 16 characters with no single quotes or line breaks.
+The owner password is stored in the private installation directory so the local
+runtime can unlock the encrypted wallet; protect that directory.
+
+To select import explicitly, run:
+
+```powershell
+node cli.js install --wallet import --client other --no-auto-config
+```
+
+Existing installations preserve their wallet, including with `--force`.
+Importing another wallet requires a separate empty `OLANAS_INSTALL_DIR`; see
+[the local setup guide](AGENT-SETUP.md#use-an-existing-wallet).
+Unattended fresh installs still create a new wallet and generate an owner
+password; `--wallet new` skips the wallet choice in interactive setup but still
+asks you to choose a password.
 
 Restart Codex and ask **Show my Olanas wallet**. Codex starts the wallet MCP for you;
 do not also start the standalone wallet. Fund the displayed address on the selected
@@ -141,7 +160,7 @@ npx olanas-payments-mcp status
 npx olanas-payments-mcp uninstall
 ```
 
-Options: `--client/-c`, `--auto-config`, `--no-auto-config`,
+Options: `--client/-c`, `--wallet new|import`, `--auto-config`, `--no-auto-config`,
 `--network`, `--launchpad`, `--force/-f`, `--verbose/-v`, and
 `--help/-h`. The default installation directory is
 `~/.olanas-payments-mcp/`. Uninstall deliberately preserves the wallet.

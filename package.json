@@ -19,7 +19,7 @@
   ],
   "type": "commonjs",
   "scripts": {
-    "test": "node --test activity.test.js autonomous-orders.test.js orders-client.test.js prepaid.test.js inference-ui.test.js quote.test.js wallet-ui.test.js session-presets.test.js scripts/import-side-wallet.test.js scripts/mainnet-preflight.test.js",
+    "test": "node --test cli.test.js activity.test.js autonomous-orders.test.js orders-client.test.js prepaid.test.js inference-ui.test.js quote.test.js wallet-ui.test.js session-presets.test.js scripts/import-side-wallet.test.js scripts/mainnet-preflight.test.js",
     "build": "node build-package.js",
     "test:runtime": "node build-package.js && node --test wallet-runtime.test.js chatgpt-http.test.js chatgpt-runtime.test.js",
     "preview:wallet": "node scripts/preview-wallet.js"

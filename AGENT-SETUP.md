@@ -41,13 +41,48 @@ node cli.js install --client other --no-auto-config
 If you already have this repository and wallet installed, skip the clone and
 installation steps and open a terminal in your existing checkout.
 
-The installer creates an encrypted local wallet and prints its address,
-network, and owner-password file location. It defaults to Robinhood mainnet.
+On a fresh installation, choose **1** to create a wallet or **2** to import an
+existing wallet's private key. Key input is hidden; confirm the displayed
+address by typing `IMPORT`. For either choice, enter and confirm an owner
+password of at least 16 characters, without single quotes or line breaks.
+Password input is hidden. The installer saves an encrypted local wallet and
+prints its address, network, and owner-password file location. It defaults to Robinhood mainnet.
 No funds move during installation, and autonomous spending starts disabled.
 The committed `dist/` runtime is ready to use; no build is required.
 
 The installer also prints a local MCP JSON configuration. For the ChatGPT
 HTTPS connection below, use the private MCP URL instead of that JSON.
+
+### Use an existing wallet
+
+To go straight to the hidden private-key prompt on a fresh installation:
+
+```powershell
+node cli.js install --wallet import --client other --no-auto-config
+```
+
+Paste the key in your own terminal, then check and confirm the derived address.
+Choose and confirm your owner password when prompted; both entries are hidden.
+Keys with or without a `0x` prefix are accepted. Do not put the key in chat,
+command arguments, or a configuration file. The encrypted keystore and chosen
+owner password are saved in the installation directory, accessible to your OS
+account. Import does not move funds or enable spending.
+
+If Olanas is already installed, its wallet is preserved. To use a different
+wallet, choose a new empty installation folder. For example, in PowerShell:
+
+```powershell
+$env:OLANAS_INSTALL_DIR = Join-Path $env:USERPROFILE '.olanas-imported-wallet'
+node cli.js install --wallet import --client other --no-auto-config
+node cli.js chatgpt --read-only
+```
+
+Set the same `OLANAS_INSTALL_DIR` again whenever you open a new terminal to
+start this wallet. Your original installation stays in its original folder.
+Using `--force` never replaces an existing wallet.
+Reinstallation also preserves the existing password. Unattended fresh installs
+generate an owner password automatically; choosing one requires an interactive
+terminal.
 
 ## 3. Start the agent connection
 
