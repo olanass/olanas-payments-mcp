@@ -243,7 +243,7 @@ async function chatgpt(options) {
   if (!fs.existsSync(envFile)) throw new Error('Install Olanas first: node cli.js install --client other --no-auto-config');
   const bundle = path.join(__dirname, 'dist', 'bundle.js');
   if (!fs.existsSync(bundle)) throw new Error('Packaged runtime is missing; build the package first');
-  log('Starting a two-hour personal ChatGPT recording connection. Stop any other Olanas MCP using this wallet first.');
+  log('Starting a two-hour agent connection. Stop any other Olanas MCP using this wallet first.');
   const args = ['--env-file=' + envFile, bundle, '--chatgpt'];
   if (options.allowPayments) args.push('--allow-payments');
   if (options.readOnly) args.push('--read-only');

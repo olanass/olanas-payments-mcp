@@ -226,10 +226,10 @@ async function start() {
   let mcp, remoteHttp;
   if (chatgptMode) {
     remoteHttp = await startChatgptHttp({ createServer: () => createMcp(true), port: Number(process.env.PAYMENTS_CHATGPT_PORT || 4784) });
-    console.error('ChatGPT recording mode: ' + (remotePayments ? 'payment tools enabled; existing wallet limits apply' : 'read-only'));
+    console.error('Agent connection mode: ' + (remotePayments ? 'payment tools enabled; existing wallet limits apply' : 'read-only'));
     console.error('In another terminal run: ngrok http http://127.0.0.1:' + remoteHttp.port + ' --host-header=rewrite');
     console.error('Private MCP URL: https://YOUR-NGROK-HOST' + remoteHttp.secretPath);
-    console.error('This URL grants tool access. Keep it out of recordings. Expires: ' + new Date(remoteHttp.expiresAt).toISOString());
+    console.error('This URL grants tool access. Keep it private. Expires: ' + new Date(remoteHttp.expiresAt).toISOString());
   } else if (!process.argv.includes('--wallet-only')) {
     mcp = createMcp();
     await mcp.connect(new StdioServerTransport());

@@ -24,13 +24,14 @@ to preview testnet. For a real side-wallet recording, follow the
 
 ## Quick start
 
-### ChatGPT recording mode
+### Agent connection
 
 Run `node cli.js chatgpt` from this updated checkout to start a separate HTTP MCP
 endpoint for an HTTPS tunnel. It uses an expiring secret URL and exposes API
 payments and Orbio inference by default. Actual spending requires wallet
 authorization. Use `--read-only` to hide payment tools.
-See [ChatGPT recording setup](CHATGPT-RECORDING.md).
+See [local agent setup with ChatGPT](AGENT-SETUP.md) for installation,
+HTTPS tunneling, connection settings, and payment authorization.
 
 ### One MCP for all three services
 
