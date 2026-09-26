@@ -9,6 +9,7 @@
   <script defer src="/ethers.js"></script>
   <script defer src="/session-presets.js"></script>
   <script defer src="/wallet.js"></script>
+  <script defer src="/inference-ui.js"></script>
 </head>
 <body>
 <main>
@@ -128,6 +129,29 @@
     <p class="small">Restarting disables autonomy. Submitted transactions cannot be recalled. Reserved funds remain counted when confirmation is uncertain.</p>
   </section>
   </div>
+
+  <section class="card" id="inference">
+    <div class="section-heading"><div><span class="eyebrow">ORBIO / PREPAID INFERENCE</span><h2>AI models, one Olanas wallet.</h2></div></div>
+    <p>Connect this wallet once, add prepaid USDG, then approve an inference budget. Onchain Explainer and Startup Pitch Scorer continue using your existing API payment limits.</p>
+    <p class="small">For a native Olanas wallet, enter the owner password in the owner controls above. No private key or API key is entered in chat.</p>
+    <p id="inference-status" role="status">Not connected to Orbio.</p>
+    <div class="actions"><button id="inference-connect" type="button">Connect Orbio</button><button id="inference-balance" class="secondary" type="button">Check prepaid balance</button></div>
+    <form id="inference-fund-form">
+      <label for="inference-amount">Add prepaid USDG</label><input id="inference-amount" inputmode="decimal" value="1" required>
+      <button type="submit">Review deposit</button>
+    </form>
+    <form id="inference-credit-form">
+      <label for="inference-hash">Original deposit transaction hash <span>Retry this hash while finality is pending</span></label><input id="inference-hash" placeholder="0x..." required>
+      <button type="submit" class="secondary">Check original deposit</button>
+    </form>
+    <form id="inference-session-form">
+      <div class="fields"><div><label for="inference-per-call">Maximum USDG per call</label><input id="inference-per-call" inputmode="decimal" value="0.10" required></div><div><label for="inference-budget">Total inference budget in USDG</label><input id="inference-budget" inputmode="decimal" value="1" required></div></div>
+      <label for="inference-minutes">Session duration in minutes</label><input id="inference-minutes" type="number" min="1" max="1440" value="60" required>
+      <button type="submit">Enable inference spending</button>
+    </form>
+    <button id="inference-revoke" type="button" class="secondary">Stop inference spending</button>
+    <p class="small">Deposits transfer USDG on-chain; inference charges deduct prepaid credit. These limits are separate from fixed-price API limits and turn off after restart. Uncertain calls keep their reservation until reconciled. Refunds require the service operator.</p>
+  </section>
 
   <section class="card requests" id="activity">
     <div class="section-heading">

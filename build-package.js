@@ -5,7 +5,8 @@ const path = require('node:path');
 const esbuild = require('esbuild');
 
 const root = process.env.OLANAS_LAUNCHPAD_SOURCE ? path.resolve(process.env.OLANAS_LAUNCHPAD_SOURCE) :
-  (fs.existsSync(path.join(__dirname, '..', 'src', 'server', 'config', 'chain.js')) ? path.resolve(__dirname, '..') : path.join(__dirname, '.main-worktree'));
+  (fs.existsSync(path.join(__dirname, '..', 'src', 'server', 'config', 'chain.js')) ? path.resolve(__dirname, '..') :
+    fs.existsSync(path.join(__dirname, '..', 'web', 'src', 'server', 'config', 'chain.js')) ? path.resolve(__dirname, '..', 'web') : path.join(__dirname, '.main-worktree'));
 const out = path.join(__dirname, 'dist');
 fs.mkdirSync(out, { recursive: true });
 
@@ -17,6 +18,7 @@ await esbuild.build({
   platform: 'node',
   format: 'cjs',
   target: 'node22',
+  nodePaths: [path.join(root, 'node_modules')],
   minify: false,
   sourcemap: false,
   plugins: [{ name: 'launchpad-source', setup(build) {
@@ -24,7 +26,7 @@ await esbuild.build({
   } }]
 });
 
-for (const file of ['wallet.html', 'wallet.js', 'wallet.css', 'session-presets.js']) {
+for (const file of ['wallet.html', 'wallet.js', 'inference-ui.js', 'wallet.css', 'session-presets.js']) {
   fs.copyFileSync(path.join(__dirname, file), path.join(out, file));
 }
 fs.copyFileSync(path.join(path.dirname(require.resolve('ethers')), '..', 'dist', 'ethers.umd.min.js'), path.join(out, 'ethers.js'));

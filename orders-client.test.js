@@ -9,6 +9,20 @@ function fixture() {
     fetch: async (url, options) => { calls.push({ url, options }); return new Response(JSON.stringify({ id: 'ord_test', quote: { name: 'Scorer' }, approvalStatus: 'pending', paymentStatus: 'unpaid', deliveryStatus: 'not_started' })); } };
   return { wallet, client: new OrdersClient(wallet), calls, saved, input: { slug: 'pitch', requestId: 'demo-pitch-001', method: 'POST', body: { name: 'Example' } } };
 }
+
+for (const service of [
+  {slug:'olanas-onchain-explainer',path:'/',body:{transactionHash:'0x'+'ab'.repeat(32),chainId:4663}},
+  {slug:'startup-pitch-scorer',path:'/api/score',body:{name:'Olanas',pitch:'A marketplace where agents discover and pay for APIs.'}}
+]) test(service.slug+' retains its fixed-price gateway request contract',async()=>{
+  const f=fixture();
+  await f.client.request({slug:service.slug,requestId:'service-contract-001',method:'POST',path:service.path,body:service.body});
+  const request=JSON.parse(f.calls[0].options.body);
+  assert.equal(request.slug,service.slug);
+  assert.equal(request.method,'POST');
+  assert.equal(request.path,service.path);
+  assert.deepEqual(request.body,service.body);
+  assert.ok(f.calls[0].url.startsWith('https://example.test/api/orders'));
+});
 test('website order credentials are persisted before creation and repeated requests only read', async () => {
   const f = fixture(); const response = await f.client.request(f.input);
   assert.equal(f.saved[0].remoteOrders[0].id, undefined);

@@ -172,4 +172,4 @@ class PaymentsWallet {
     } finally { this.busy.delete(id); }
   }
 }
-module.exports = { PaymentsWallet };
+module.exports = { PaymentsWallet, readBounded };

@@ -55,7 +55,7 @@ test('packaged wallet serves matching assets, authenticates owner controls and e
     const url = new URL(walletUrl), token = url.hash.slice(1);
     const headers = { authorization: 'Bearer ' + token };
     const request = (route, options = {}) => fetch(url.origin + route, { ...options, signal: AbortSignal.timeout(5000) });
-    for (const [route, file] of [['/', 'wallet.html'], ['/wallet.js', 'wallet.js'], ['/wallet.css', 'wallet.css'], ['/session-presets.js', 'session-presets.js']]) {
+    for (const [route, file] of [['/', 'wallet.html'], ['/wallet.js', 'wallet.js'], ['/inference-ui.js','inference-ui.js'], ['/wallet.css', 'wallet.css'], ['/session-presets.js', 'session-presets.js']]) {
       const res = await request(route);
       assert.equal(res.status, 200);
       assert.match(res.headers.get('content-security-policy'), /frame-ancestors 'none'/);
@@ -91,6 +91,8 @@ test('packaged wallet serves matching assets, authenticates owner controls and e
     assert.equal(mismatch.status, 400); assert.match((await mismatch.json()).error, /RPC network mismatch/);
     const post = (route, body, owner = password) => request(route, { method: 'POST',
       headers: { ...headers, 'content-type': 'application/json', 'x-owner-password': owner }, body: JSON.stringify(body) });
+    assert.equal((await post('/api/inference/session',{},'incorrect')).status,403);
+    assert.equal((await post('/api/inference/fund',{},'incorrect')).status,403);
     const input = { token: 'USDG', budget: '0.01', minutes: 60, gasMode: 'standard' };
     assert.equal((await post('/api/owner/session', input, 'incorrect')).status, 403);
     for (const gasMode of ['standard', 'fast']) {

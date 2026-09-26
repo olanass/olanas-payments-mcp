@@ -24,6 +24,52 @@ to preview testnet. For a real side-wallet recording, follow the
 
 ## Quick start
 
+### ChatGPT recording mode
+
+Run `node cli.js chatgpt` from this updated checkout to start a separate HTTP MCP
+endpoint for an HTTPS tunnel. It uses an expiring secret URL and exposes API
+payments and Orbio inference by default. Actual spending requires wallet
+authorization. Use `--read-only` to hide payment tools.
+See [ChatGPT recording setup](CHATGPT-RECORDING.md).
+
+### One MCP for all three services
+
+Connect only **Olanas Payments** to your assistant. Onchain Explainer and Startup
+Pitch Scorer use `search_services`, `request_paid_api`, and `get_payment_status`
+with their existing fixed-price orders and token limits. Use the discovered slug
+and schema. Explainer accepts `transactionHash` and optional `chainId: 4663`;
+Pitch Scorer accepts `name` and `pitch`. Use the Olanas gateway for paid calls.
+
+Orbio is included through its prepaid HTTP API, not a second MCP. Open the existing
+local wallet page and use **Orbio / Prepaid inference**:
+
+1. Connect Orbio and review its origin, network and receiver. Native mode signs
+   locally after owner-password authorization; browser mode asks the connected
+   wallet to sign. No manual API-key entry is required.
+2. Deposit USDG and check the original transaction hash until finalized. Keep ETH
+   for gas. Register before depositing. Refunds require the service operator.
+3. Approve a per-call cap, total inference budget and session duration.
+4. Ask the assistant to `list_ai_models`, `quote_ai_model`, and `use_ai_model` with
+   one saved `requestId`. Show the answer and charge, then `get_ai_balance`.
+
+`get_ai_funding_details`, `credit_ai_deposit`, `get_inference_receipt`, and
+`recover_ai_inference` support funding and recovery. Crediting verifies an existing
+transfer; recovery completes a saved result without another provider request.
+Keep the same ID and exact input on timeouts. Uncertain calls retain reservations
+and block replacement calls or budget resets pending reconciliation. To resume
+after restart, approve the same caps; the original reserved amount stays counted.
+
+Orbio prepaid credit and limits are separate from the on-chain wallet and API
+limits. Inference sessions turn off on restart. Credentials, prompts and receipts
+are in a separate encrypted journal; preserve its companion token for recovery.
+Limits are enforced locally, not on-chain; a stolen agent key can spend the account.
+
+The default backend is `https://orbio-inference.vercel.app`. Operators can set
+`OLANAS_ORBIO_ORIGIN` to another HTTPS origin; MCP arguments cannot change it.
+Deploy the matching backend with `/quote`, `/calls/:id`, `/calls/:id/recover` and
+approved-maximum header support before using these tools. No Orbio operator key
+is required in the local MCP.
+
 Install directly from GitHub in one command:
 
 ```powershell

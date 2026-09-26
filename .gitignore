@@ -39,6 +39,7 @@ coverage/
 /tmp/
 /MAINNET-RECORDING.md
 /VIDEO-RECORDING-GUIDE.md
+/CHATGPT-RECORDING.md
 *.log
 npm-debug.log*
 

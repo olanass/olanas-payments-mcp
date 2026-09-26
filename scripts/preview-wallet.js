@@ -27,6 +27,7 @@ const state = { preview: true, walletProvider: manual ? 'browser' : 'olanas', ad
     spent: { USDG: '0', ETH: '0', OLANAS: '12.5' }, gasDaily: '0.0001', gasPerCall: '0.00001',
     gasSpent: '0.000003', gasMode: 'standard', resetsAt: new Date(Date.parse(new Date(now).toISOString().slice(0, 10) + 'T00:00:00Z') + 86400000).toISOString() } };
 const assets = { '/': ['wallet.html', 'text/html'], '/wallet.js': ['wallet.js', 'text/javascript'], '/session-presets.js': ['session-presets.js', 'text/javascript'], '/wallet.css': ['wallet.css', 'text/css'], '/ethers.js': ['dist/ethers.js', 'text/javascript'] };
+assets['/inference-ui.js']=['inference-ui.js','text/javascript'];
 const server = http.createServer((req, res) => {
   res.setHeader('Cache-Control', 'no-store'); res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'");

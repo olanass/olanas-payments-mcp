@@ -357,6 +357,7 @@ async function refresh() {
   try { state = await api('/state'); }
   catch (error) { markCompanionUnavailable(); throw error; }
   companionAvailable = true;
+  $('inference').hidden = Boolean(state.preview);
   $('funding-title').textContent = state.walletProvider === 'olanas' ? 'Your local wallet.' : 'Your browser wallet.';
   $('wallet-access').hidden = true;
   $('owner-controls').hidden = state.walletProvider !== 'olanas';

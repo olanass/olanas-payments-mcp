@@ -5,7 +5,7 @@ const os = require('node:os');
 const path = require('node:path');
 const crypto = require('node:crypto');
 const readline = require('node:readline');
-const { spawnSync } = require('node:child_process');
+const { spawn, spawnSync } = require('node:child_process');
 const { parseEnv } = require('node:util');
 const { Wallet } = require('ethers');
 const pkg = require('./package.json');
@@ -34,6 +34,8 @@ function parseArgs(argv) {
   for (; index < argv.length; index++) {
     const value = argv[index];
     if (value === '--auto-config') options.autoConfig = true;
+    else if (value === '--allow-payments') options.allowPayments = true;
+    else if (value === '--read-only') options.readOnly = true;
     else if (value === '--no-auto-config') options.autoConfig = false;
     else if (value === '--verbose' || value === '-v') options.verbose = true;
     else if (value === '--force' || value === '-f') options.force = true;
@@ -44,6 +46,9 @@ function parseArgs(argv) {
     else throw new Error('Unknown option: ' + value);
   }
   if (options.client && !clients.includes(options.client)) throw new Error('Client must be one of: ' + clients.join(', '));
+  if (options.allowPayments && options.command !== 'chatgpt') throw new Error('--allow-payments requires the chatgpt command');
+  if (options.readOnly && options.command !== 'chatgpt') throw new Error('--read-only requires the chatgpt command');
+  if (options.readOnly && options.allowPayments) throw new Error('Choose --read-only or --allow-payments');
   if (!['mainnet', 'testnet'].includes(options.network)) throw new Error('Network must be mainnet or testnet');
   const origin = new URL(options.launchpad);
   if (origin.pathname !== '/' || origin.search || origin.hash || origin.username || origin.password) throw new Error('Launchpad must be an origin without a path');
@@ -220,6 +225,7 @@ function help() {
   log('  npx olanas-payments-mcp');
   log('  npx olanas-payments-mcp install [options]');
   log('  npx olanas-payments-mcp status');
+  log('  npx olanas-payments-mcp chatgpt [--read-only]');
   log('  npx olanas-payments-mcp uninstall');
   log('');
   log('Options:');
@@ -233,10 +239,28 @@ function help() {
   log('  --help, -h             Show help');
 }
 
+async function chatgpt(options) {
+  if (!fs.existsSync(envFile)) throw new Error('Install Olanas first: node cli.js install --client other --no-auto-config');
+  const bundle = path.join(__dirname, 'dist', 'bundle.js');
+  if (!fs.existsSync(bundle)) throw new Error('Packaged runtime is missing; build the package first');
+  log('Starting a two-hour personal ChatGPT recording connection. Stop any other Olanas MCP using this wallet first.');
+  const args = ['--env-file=' + envFile, bundle, '--chatgpt'];
+  if (options.allowPayments) args.push('--allow-payments');
+  if (options.readOnly) args.push('--read-only');
+  const child = spawn(process.execPath, args, { stdio: 'inherit', windowsHide: true });
+  const stop = () => child.kill();
+  process.on('SIGINT', stop); process.on('SIGTERM', stop);
+  await new Promise((resolve, reject) => {
+    child.once('error', reject);
+    child.once('exit', code => { process.exitCode = code ?? 1; resolve(); });
+  }).finally(() => { process.off('SIGINT', stop); process.off('SIGTERM', stop); });
+}
+
 async function main() {
   const options = parseArgs(process.argv.slice(2));
   if (options.command === 'help') return help();
   if (options.command === 'status') return status();
+  if (options.command === 'chatgpt') return chatgpt(options);
   if (options.command === 'uninstall') return uninstall(options);
   if (options.command !== 'install') throw new Error('Unknown command: ' + options.command);
   await install(options);
